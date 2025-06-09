@@ -100,7 +100,7 @@ sudo nic-xray.sh --lacp
 echo "Sorry, can't share"
 ```
 
-# 🔍 `create-ssl-csr.sh
+# 🔍 `create-ssl-csr.sh`
 **Author**: Ciro Iriarte
 **Created**: 2025-06-06
 **Updated**: 2025-06-06
