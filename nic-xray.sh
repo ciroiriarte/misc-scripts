@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-## Script Name: nic-xray.sh
+# Script Name: nic-xray.sh
 # Description: This script lists all physical network interfaces on the system,
 #              showing PCI slot, firmware version, MAC address, MTU, link status,
 #              negotiated speed/duplex, bond membership, and LLDP peer info.
@@ -22,16 +22,22 @@
 #                 Changed variables to uppercase
 #                 Added  LACP peer info (requires LLDP)
 #                 Added  VLAN peer info (requires LLDP)
+#   - 2025-06-25: Fixed MAC extraction for bond slaves
 #
-#
+
+# LOCALE setup, we expect output in English for proper parsing
+LANG=en_US.UTF-8
+
 # --- Argument Parsing ---
 SHOW_LACP=false
 SHOW_VLAN=false
+SHOW_BMAC=false
 
 for ARG in "$@"; do
     case "$ARG" in
         --lacp) SHOW_LACP=true ;;
         --vlan) SHOW_VLAN=true ;;
+        --bmac) SHOW_BMAC=true ;;
         --help)
             echo -e "Usage: $0 [--lacp] [--vlan] [--help]"
             echo -e ""
@@ -95,8 +101,9 @@ pad_color() {
 
 # --- Header ---
 printf "%-16s\t%-22s\t%-13s\t%-20s\t%-4s\t%-4b\t%-20s\t%b\t" "PCI Slot" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
-$SHOW_LACP && printf "%-30b\t" "LACP Status"
-$SHOW_VLAN && printf "%-16s\t" "VLAN"
+${SHOW_BMAC} && printf "%-30b\t" "Bond MAC"
+${SHOW_LACP} && printf "%-30b\t" "LACP Status"
+${SHOW_VLAN} && printf "%-16s\t" "VLAN"
 printf "%-20s\t%-20s\n" "Switch Name" "Port Name"
 echo -e "----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------"
 
@@ -109,7 +116,6 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
 
     PCI_SLOT=$(basename "$(readlink -f "$DEVICE_PATH")")
     FIRMWARE=$(ethtool -i "$IFACE" 2>/dev/null | awk -F': ' '/firmware-version/ {print $2}')
-    MAC=$(cat /sys/class/net/$IFACE/address 2>/dev/null)
     MTU=$(cat /sys/class/net/$IFACE/mtu 2>/dev/null)
 
     LINK_RAW=$(cat /sys/class/net/$IFACE/operstate 2>/dev/null)
@@ -130,9 +136,13 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
             BOND_COLORS[$BOND_MASTER]=${COLOR_CODES[$COLOR_INDEX]}
             ((COLOR_INDEX=(COLOR_INDEX+1)%${#COLOR_CODES[@]}))
         fi
-        COLORED_BOND="${BOND_COLORS[$BOND_MASTER]}$(printf '%-16s' "$BOND_MASTER")${RESET_COLOR}"
+        COLORED_BOND="${BOND_COLORS[$BOND_MASTER]}$(printf '%-16s' "${BOND_MASTER}")${RESET_COLOR}"
+        MAC=$(grep -E "Slave Interface: ${IFACE}|Permanent HW addr" /proc/net/bonding/${BOND_MASTER} |grep -A1 "Slave Interface: ${IFACE}"|tail -1|awk '{ print $4}' 2>/dev/null)
+        BMAC=$(grep "System MAC address" /proc/net/bonding/${BOND_MASTER}|awk '{ print $4 }' 2>/dev/null)
     else
-        COLORED_BOND=$(printf "%-16s" "$BOND_MASTER")
+        COLORED_BOND=$(printf "%-16s" "${BOND_MASTER}")
+        MAC=$(cat /sys/class/net/${IFACE}/address 2>/dev/null)
+        BMAC="N/A"
     fi
 
     # LACP Status
@@ -189,7 +199,8 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
 
     # Output
     printf "%-16s\t%-22s\t%-13s\t%-20s\t%-4s\t%-4b\t%-20s\t%b" "$PCI_SLOT" "$FIRMWARE" "$IFACE" "$MAC" "$MTU" "$LINK_STATUS" "$SPEED_DUPLEX" "$COLORED_BOND"
-    $SHOW_LACP && printf "%-30b" "$LACP_STATUS"
-    $SHOW_VLAN && printf "%-16s\t" "$VLAN_INFO"
-    printf "%-20s\t%-20s\n" "$SWITCH_NAME" "$PORT_NAME"
+    ${SHOW_BMAC} && printf "%-30b" "${BMAC}"
+    ${SHOW_LACP} && printf "%-30b" "${LACP_STATUS}"
+    ${SHOW_VLAN} && printf "%-16s\t" "${VLAN_INFO}"
+    printf "%-20s\t%-20s\n" "${SWITCH_NAME}" "${PORT_NAME}"
 done
