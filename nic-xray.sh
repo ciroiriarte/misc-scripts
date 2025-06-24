@@ -22,7 +22,8 @@
 #                 Changed variables to uppercase
 #                 Added  LACP peer info (requires LLDP)
 #                 Added  VLAN peer info (requires LLDP)
-#   - 2025-06-25: Fixed MAC extraction for bond slaves
+#   - 2025-06-23: Fixed MAC extraction for bond slaves
+#                 Added support for CSV output
 #
 
 # LOCALE setup, we expect output in English for proper parsing
@@ -160,7 +161,7 @@ case ${OUTPUT_FORMAT} in
 		;;
 esac
 
-printf "%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%b${FSEP}%s${FSEP}%b${FSEP}" "PCI Slot" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
+printf "%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%b${FSEP}%s${FSEP}%b${FSEP}" "Device" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
 ${SHOW_BMAC} && printf "%b${FSEP}" "Bond MAC"
 ${SHOW_LACP} && printf "%b${FSEP}" "LACP Status"
 ${SHOW_VLAN} && printf "%s${FSEP}" "VLAN"
@@ -174,7 +175,7 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
     DEVICE_PATH="/sys/class/net/$IFACE/device"
     [[ ! -e "$DEVICE_PATH" ]] && continue
 
-    PCI_SLOT=$(basename "$(readlink -f "$DEVICE_PATH")")
+    DEVICE=$(basename "$(readlink -f "$DEVICE_PATH")")
     FIRMWARE=$(ethtool -i "$IFACE" 2>/dev/null | awk -F': ' '/firmware-version/ {print $2}')
     MTU=$(cat /sys/class/net/$IFACE/mtu 2>/dev/null)
 
@@ -258,7 +259,7 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
     fi
 
     # Output
-    printf "%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%b${FSEP}%s${FSEP}%b${FSEP}" "$PCI_SLOT" "$FIRMWARE" "$IFACE" "$MAC" "$MTU" "$LINK_STATUS" "$SPEED_DUPLEX" "$COLORED_BOND"
+    printf "%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%b${FSEP}%s${FSEP}%b${FSEP}" "$DEVICE" "$FIRMWARE" "$IFACE" "$MAC" "$MTU" "$LINK_STATUS" "$SPEED_DUPLEX" "$COLORED_BOND"
     ${SHOW_BMAC} && printf "%b${FSEP}" "${BMAC}"
     ${SHOW_LACP} && printf "%b${FSEP}" "${LACP_STATUS}"
     ${SHOW_VLAN} && printf "%s${FSEP}" "${VLAN_INFO}"
