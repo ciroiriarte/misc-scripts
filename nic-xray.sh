@@ -32,28 +32,75 @@ LANG=en_US.UTF-8
 SHOW_LACP=false
 SHOW_VLAN=false
 SHOW_BMAC=false
+OUTPUT_FORMAT="table"
 
-for ARG in "$@"; do
-    case "$ARG" in
-        --lacp) SHOW_LACP=true ;;
-        --vlan) SHOW_VLAN=true ;;
-        --bmac) SHOW_BMAC=true ;;
-        --help)
-            echo -e "Usage: $0 [--lacp] [--vlan] [--help]"
-            echo -e ""
-            echo -e "Description:"
-            echo -e "  Lists physical network interfaces with detailed information including:"
-            echo -e "  PCI slot, firmware, MAC, MTU, link, speed/duplex, bond membership,"
-            echo -e "  LLDP peer info, and optionally LACP status and VLAN tagging (via LLDP)."
-            echo -e ""
-            echo -e "Options:"
-            echo -e "  --lacp     Show LACP Aggregator ID and Partner MAC per interface"
-            echo -e "  --vlan     Show VLAN tagging information (from LLDP)"
-            echo -e "  --help     Display this help message"
-            exit 0
-            ;;
-    esac
+
+# Parse options using getopt
+OPTIONS=$(getopt -o h --long help,lacp,vlan,bmac,output: -n "$0" -- "$@")
+if [ $? -ne 0 ]; then
+	echo "Failed to parse options." >&2
+	exit 1
+fi
+
+
+# Reorder the positional parameters according to getopt's output
+eval set -- "$OPTIONS"
+
+# Process options
+while true; do
+	case "$1" in
+		--lacp)
+			SHOW_LACP=true
+			shift
+			;;
+		--vlan)
+			SHOW_VLAN=true
+			shift
+			;;
+		--bmac)
+			SHOW_BMAC=true
+			shift
+			;;
+		--output)
+			case "$2" in
+				table|csv|json)
+				OUTPUT_FORMAT="$2"
+				;;
+			*)
+                    		echo "Invalid output format: $2. Choose from table, csv, or json." >&2
+				exit 1
+				;;
+			esac
+			shift 2
+			;;
+		-h|--help)
+			echo -e "Usage: $0 [--lacp] [--vlan] [--bmac] [--output FORMAT] [--help]"
+			echo -e ""
+			echo -e "Description:"
+			echo -e "  Lists physical network interfaces with detailed information including:"
+			echo -e "  PCI slot, firmware, MAC, MTU, link, speed/duplex, bond membership,"
+			echo -e "  LLDP peer info, and optionally LACP status and VLAN tagging (via LLDP)."
+			echo -e ""
+			echo -e "Options:"
+			echo -e "  --lacp         Show LACP Aggregator ID and Partner MAC per interface"
+			echo -e "  --vlan         Show VLAN tagging information (from LLDP)"
+			echo -e "  --bmac         Show bridge MAC address"
+			echo -e "  --output TYPE  Output format: table (default), csv, or json"
+			echo -e "  --help         Display this help message"
+			exit 0
+			;;
+		--)
+			shift
+			break
+			;;
+		*)
+			echo "Unexpected option: $1" >&2
+			exit 1
+			;;
+	esac
 done
+
+
 
 # --- Validation Section ---
 if [[ $EUID -ne 0 ]]; then
