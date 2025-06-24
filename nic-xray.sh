@@ -147,12 +147,25 @@ pad_color() {
 }
 
 # --- Header ---
-printf "%-16s\t%-22s\t%-13s\t%-20s\t%-4s\t%-4b\t%-20s\t%b\t" "PCI Slot" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
-${SHOW_BMAC} && printf "%-30b\t" "Bond MAC"
-${SHOW_LACP} && printf "%-30b\t" "LACP Status"
-${SHOW_VLAN} && printf "%-16s\t" "VLAN"
-printf "%-20s\t%-20s\n" "Switch Name" "Port Name"
-echo -e "----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------"
+case ${OUTPUT_FORMAT} in
+	table)
+		FSEP="\t"
+		;;
+	csv)
+		FSEP=","
+		;;
+	*)
+		echo "something went wrong"
+		exit 1
+		;;
+esac
+
+printf "%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%b${FSEP}%s${FSEP}%b${FSEP}" "PCI Slot" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
+${SHOW_BMAC} && printf "%b${FSEP}" "Bond MAC"
+${SHOW_LACP} && printf "%b${FSEP}" "LACP Status"
+${SHOW_VLAN} && printf "%s${FSEP}" "VLAN"
+printf "%s${FSEP}%s\n" "Switch Name" "Port Name"
+[[ ${OUTPUT_FORMAT} == "table" ]] && echo -e "----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------"
 
 # --- Main Logic ---
 for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|tun'); do
@@ -183,11 +196,11 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
             BOND_COLORS[$BOND_MASTER]=${COLOR_CODES[$COLOR_INDEX]}
             ((COLOR_INDEX=(COLOR_INDEX+1)%${#COLOR_CODES[@]}))
         fi
-        COLORED_BOND="${BOND_COLORS[$BOND_MASTER]}$(printf '%-16s' "${BOND_MASTER}")${RESET_COLOR}"
+        COLORED_BOND="${BOND_COLORS[$BOND_MASTER]}$(printf '%s' "${BOND_MASTER}")${RESET_COLOR}"
         MAC=$(grep -E "Slave Interface: ${IFACE}|Permanent HW addr" /proc/net/bonding/${BOND_MASTER} |grep -A1 "Slave Interface: ${IFACE}"|tail -1|awk '{ print $4}' 2>/dev/null)
         BMAC=$(grep "System MAC address" /proc/net/bonding/${BOND_MASTER}|awk '{ print $4 }' 2>/dev/null)
     else
-        COLORED_BOND=$(printf "%-16s" "${BOND_MASTER}")
+        COLORED_BOND=$(printf "%s" "${BOND_MASTER}")
         MAC=$(cat /sys/class/net/${IFACE}/address 2>/dev/null)
         BMAC="N/A"
     fi
@@ -215,11 +228,11 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
         ' /proc/net/bonding/$BOND_MASTER)
 
         if [[ "$LACP_STATUS" == *"(Partial)"* ]]; then
-            LACP_STATUS=$(pad_color "${YELLOW}${LACP_STATUS}${RESET_COLOR}" 24)
+            LACP_STATUS="${YELLOW}${LACP_STATUS}${RESET_COLOR}"
         elif [[ "$LACP_STATUS" == AggID* ]]; then
-            LACP_STATUS=$(pad_color "${GREEN}${LACP_STATUS}${RESET_COLOR}" 24)
+            LACP_STATUS="${GREEN}${LACP_STATUS}${RESET_COLOR}"
         else
-            LACP_STATUS=$(pad_color "${RED}${LACP_STATUS}${RESET_COLOR}" 24)
+            LACP_STATUS="${RED}${LACP_STATUS}${RESET_COLOR}"
         fi
     fi
 
@@ -234,10 +247,10 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
         while IFS= read -r LINE; do
             VLAN_ID=$(echo "$LINE" | awk -F'VLAN: ' '{print $2}' | awk -F', ' '{print $1}'|awk '{ print $1 }')
             PVID=$(echo "$LINE" | awk -F'pvid: ' '{print $2}' | awk '{print $1}')
-            [[ $PVID == "yes" ]] && VLAN_INFO+="${VLAN_ID}[P]," || VLAN_INFO+="${VLAN_ID},"
+            [[ $PVID == "yes" ]] && VLAN_INFO+="${VLAN_ID}[P];" || VLAN_INFO+="${VLAN_ID};"
         done <<< "$(echo "$LLDP_OUTPUT" | grep 'VLAN:')"
         VLAN_INFO=${VLAN_INFO%, }
-	VLAN_INFO=$(echo ${VLAN_INFO}|sed 's/,$//g')
+	VLAN_INFO=$(echo ${VLAN_INFO}|sed 's/;$//g')
 	if [ "${VLAN_INFO}x" == "x" ]
 	then
 		VLAN_INFO="N/A"
@@ -245,9 +258,9 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
     fi
 
     # Output
-    printf "%-16s\t%-22s\t%-13s\t%-20s\t%-4s\t%-4b\t%-20s\t%b" "$PCI_SLOT" "$FIRMWARE" "$IFACE" "$MAC" "$MTU" "$LINK_STATUS" "$SPEED_DUPLEX" "$COLORED_BOND"
-    ${SHOW_BMAC} && printf "%-30b" "${BMAC}"
-    ${SHOW_LACP} && printf "%-30b" "${LACP_STATUS}"
-    ${SHOW_VLAN} && printf "%-16s\t" "${VLAN_INFO}"
-    printf "%-20s\t%-20s\n" "${SWITCH_NAME}" "${PORT_NAME}"
+    printf "%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%b${FSEP}%s${FSEP}%b${FSEP}" "$PCI_SLOT" "$FIRMWARE" "$IFACE" "$MAC" "$MTU" "$LINK_STATUS" "$SPEED_DUPLEX" "$COLORED_BOND"
+    ${SHOW_BMAC} && printf "%b${FSEP}" "${BMAC}"
+    ${SHOW_LACP} && printf "%b${FSEP}" "${LACP_STATUS}"
+    ${SHOW_VLAN} && printf "%s${FSEP}" "${VLAN_INFO}"
+    printf "%s${FSEP}%s\n" "${SWITCH_NAME}" "${PORT_NAME}"
 done
