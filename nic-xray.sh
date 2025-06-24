@@ -67,7 +67,7 @@ while true; do
 				OUTPUT_FORMAT="$2"
 				;;
 			*)
-                    		echo "Invalid output format: $2. Choose from table, csv, or json." >&2
+				echo "Invalid output format: $2. Choose from table, csv, or json." >&2
 				exit 1
 				;;
 			esac
@@ -77,16 +77,16 @@ while true; do
 			echo -e "Usage: $0 [--lacp] [--vlan] [--bmac] [--output FORMAT] [--help]"
 			echo -e ""
 			echo -e "Description:"
-			echo -e "  Lists physical network interfaces with detailed information including:"
-			echo -e "  PCI slot, firmware, MAC, MTU, link, speed/duplex, bond membership,"
-			echo -e "  LLDP peer info, and optionally LACP status and VLAN tagging (via LLDP)."
+			echo -e " Lists physical network interfaces with detailed information including:"
+			echo -e " PCI slot, firmware, MAC, MTU, link, speed/duplex, bond membership,"
+			echo -e " LLDP peer info, and optionally LACP status and VLAN tagging (via LLDP)."
 			echo -e ""
 			echo -e "Options:"
-			echo -e "  --lacp         Show LACP Aggregator ID and Partner MAC per interface"
-			echo -e "  --vlan         Show VLAN tagging information (from LLDP)"
-			echo -e "  --bmac         Show bridge MAC address"
-			echo -e "  --output TYPE  Output format: table (default), csv, or json"
-			echo -e "  --help         Display this help message"
+			echo -e " --lacp         Show LACP Aggregator ID and Partner MAC per interface"
+			echo -e " --vlan         Show VLAN tagging information (from LLDP)"
+			echo -e " --bmac         Show bridge MAC address"
+			echo -e " --output TYPE  Output format: table (default), csv, or json"
+			echo -e " --help         Display this help message"
 			exit 0
 			;;
 		--)
