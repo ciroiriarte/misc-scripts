@@ -4,9 +4,11 @@
 # Description: Provides a comprehensive KVM host memory usage and optimization summary.
 #
 # Author: Ciro Iriarte <ciro.iriarte@millicom.com>
-# Version: 2.0
+# Version: 2.2
 #
 # Changelog:
+#   - 2025-09-11: v2.2 - Corrected misleading "Balloon" column to be accurate and more descriptive.
+#   - 2025-09-11: v2.1 - Added host and per-VM guest swap monitoring.
 #   - 2025-09-11: v2.0 - Added summary, improved KSM/VM reporting, prerequisite checks, and formatting.
 #   - 2025-09-11: v1.0 - Initial version.
 
@@ -51,69 +53,85 @@ echo ""
 # 3. Overall Summary
 print_header "Host & VM Memory Summary"
 host_mem_total_mib=$(free -m | awk '/^Mem:/{print $2}')
-vm_mem_allocated_total_mib=0
-vm_mem_actual_total_mib=0
+vm_mem_max_total_mib=0
+vm_mem_current_total_mib=0
 
 # Loop through running VMs to aggregate memory stats
 while read -r vm_name; do
     if [[ -n "$vm_name" ]]; then
-        allocated_mib=$(virsh dominfo "$vm_name" | awk '/Max memory:/{print $3/1024}')
-        vm_mem_allocated_total_mib=$((vm_mem_allocated_total_mib + allocated_mib))
+        max_mib=$(virsh dominfo "$vm_name" | awk '/Max memory:/{print $3/1024}')
+        vm_mem_max_total_mib=$((vm_mem_max_total_mib + max_mib))
         
-        actual_kib=$(virsh dommemstat "$vm_name" | awk '/actual/{print $2}')
-        if [[ -n "$actual_kib" ]]; then
-            vm_mem_actual_total_mib=$((vm_mem_actual_total_mib + actual_kib / 1024))
+        current_kib=$(virsh dommemstat "$vm_name" | awk '/actual/{print $2}')
+        if [[ -n "$current_kib" ]]; then
+            vm_mem_current_total_mib=$((vm_mem_current_total_mib + current_kib / 1024))
         fi
     fi
 done < <(virsh list --state-running --name)
 
-host_mem_free_mib=$(free -m | awk '/^Mem:/{print $4}')
 host_mem_available_mib=$(free -m | awk '/^Mem:/{print $7}')
 
-printf "%-25s : %'d MiB\n" "Host Total Memory" "$host_mem_total_mib"
-printf "%-25s : %'d MiB\n" "Total VM Allocated" "$vm_mem_allocated_total_mib"
-printf "%-25s : %'d MiB\n" "Total VM Actual Usage" "$vm_mem_actual_total_mib"
-printf "%-25s : %'d MiB\n" "Host Available Memory" "$host_mem_available_mib"
+printf "%-28s : %'d MiB\n" "Host Total Memory" "$host_mem_total_mib"
+printf "%-28s : %'d MiB\n" "Total VM Max Allocation" "$vm_mem_max_total_mib"
+printf "%-28s : %'d MiB\n" "Total VM Current Allocation" "$vm_mem_current_total_mib"
+printf "%-28s : %'d MiB\n" "Host Available Memory" "$host_mem_available_mib"
 
-# 4. Detailed VM Memory Usage
-print_header "Running VM Memory Details"
-printf "%-20s %15s %15s %15s\n" "VM Name" "Allocated (MiB)" "Actual Use (MiB)" "Balloon (MiB)"
-echo "---------------------------------------------------------------------"
+# 4. Detailed VM Memory Usage & Guest Swap Activity
+print_header "VM Memory & Swap Details"
+printf "%-20s %15s %15s %15s %15s %12s %12s\n" "VM Name" "Max Alloc" "Current Alloc" "Guest Used" "Guest Free" "Swap In" "Swap Out"
+printf "%-20s %15s %15s %15s %15s %12s %12s\n" "" "(MiB)" "(MiB)" "(MiB)" "(MiB)" "(MiB)" "(MiB)"
+echo "----------------------------------------------------------------------------------------------------------------------------"
 while read -r vm_name; do
     if [[ -n "$vm_name" ]]; then
-        allocated_mib=$(virsh dominfo "$vm_name" | awk '/Max memory:/{print $3/1024}')
-        actual_kib=$(virsh dommemstat "$vm_name" | awk '/actual/{print $2}')
-        unused_kib=$(virsh dommemstat "$vm_name" | awk '/unused/{print $2}')
+        stats=$(virsh dommemstat "$vm_name")
+        max_alloc_mib=$(virsh dominfo "$vm_name" | awk '/Max memory:/{print $3/1024}')
         
-        actual_mib=$((actual_kib / 1024))
-        balloon_mib=$(( (allocated_mib * 1024 - unused_kib) / 1024 ))
+        current_alloc_kib=$(echo "$stats" | awk '/actual/{print $2}')
+        guest_free_kib=$(echo "$stats" | awk '/unused/{print $2}')
+        swap_in_kib=$(echo "$stats" | awk '/swap_in/{print $2}')
+        swap_out_kib=$(echo "$stats" | awk '/swap_out/{print $2}')
 
-        printf "%-20s %'15d %'15d %'15d\n" "$vm_name" "$allocated_mib" "$actual_mib" "$balloon_mib"
+        # Perform calculations, defaulting to 0 if a value is missing
+        current_alloc_mib=$(( ${current_alloc_kib:-0} / 1024 ))
+        guest_free_mib=$(( ${guest_free_kib:-0} / 1024 ))
+        guest_used_mib=$(( current_alloc_mib - guest_free_mib ))
+        swap_in_mib=$(( ${swap_in_kib:-0} / 1024 ))
+        swap_out_mib=$(( ${swap_out_kib:-0} / 1024 ))
+        
+        printf "%-20s %'15.0f %'15.0f %'15.0f %'15.0f %'12.0f %'12.0f\n" \
+            "$vm_name" "$max_alloc_mib" "$current_alloc_mib" "$guest_used_mib" "$guest_free_mib" "$swap_in_mib" "$swap_out_mib"
     fi
 done < <(virsh list --state-running --name)
 
 # 5. KSM (Kernel Same-page Merging) Savings
 print_header "KSM Memory Savings"
-ksm_run=$(cat /sys/kernel/mm/ksm/run)
-if [[ "$ksm_run" -eq 1 ]]; then
-    echo "Status: KSM is Active"
-    pages_sharing=$(cat /sys/kernel/mm/ksm/pages_sharing)
-    pages_shared=$(cat /sys/kernel/mm/ksm/pages_shared)
-    pages_saved=$((pages_sharing - pages_shared))
-    page_size=$(getconf PAGESIZE)
-    
-    memory_saved_mib=$(echo "$pages_saved * $page_size / 1024 / 1024" | bc -l)
-    
-    printf "%-25s : %'d\n" "Pages saved" "$pages_saved"
-    printf "%-25s : %.2f MiB\n" "Estimated memory saved" "$memory_saved_mib"
+if [[ -f /sys/kernel/mm/ksm/run ]]; then
+    ksm_run=$(cat /sys/kernel/mm/ksm/run)
+    if [[ "$ksm_run" -eq 1 ]]; then
+        echo "Status: KSM is Active"
+        pages_sharing=$(cat /sys/kernel/mm/ksm/pages_sharing)
+        pages_shared=$(cat /sys/kernel/mm/ksm/pages_shared)
+        pages_saved=$((pages_sharing - pages_shared))
+        page_size=$(getconf PAGESIZE)
+        
+        memory_saved_mib=$(echo "scale=2; $pages_saved * $page_size / 1024 / 1024" | bc)
+        
+        printf "%-25s : %'d\n" "Pages saved" "$pages_saved"
+        printf "%-25s : %s MiB\n" "Estimated memory saved" "$memory_saved_mib"
+    else
+        echo "Status: KSM is Inactive (/sys/kernel/mm/ksm/run is 0)"
+    fi
 else
-    echo "Status: KSM is Inactive (/sys/kernel/mm/ksm/run is 0)"
+    echo "Status: KSM not supported or enabled by the kernel."
 fi
 
 # 6. Host-level Details
 print_header "Host Configuration"
 echo "Host Memory Usage:"
 free -h
+
+echo -e "\nHost Swap Usage:"
+free -h | grep -E '^Swap'
 
 echo -e "\nHugepages Usage:"
 grep HugePages /proc/meminfo
