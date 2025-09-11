@@ -44,7 +44,7 @@ check_dependencies
 
 # 2. Initial Header
 echo "==================================="
-echo " KVM Memory Optimization Report"
+echo " KVM Memory Usage Report"
 echo "==================================="
 echo "Date: $(date)"
 echo "Hostname: $(hostname)"
