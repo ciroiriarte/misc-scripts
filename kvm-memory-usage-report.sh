@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Script Name: kvm-memory-optimization-report.sh
+# Script Name: kvm-memory-usage-report.sh
 # Description: Provides a comprehensive KVM host memory usage and optimization summary.
 #
 # Author: Ciro Iriarte <ciro.iriarte@millicom.com>
