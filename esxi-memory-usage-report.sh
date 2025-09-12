@@ -16,23 +16,35 @@ echo "Date: $(date)"
 echo "Hostname: $(hostname)"
 echo ""
 
+# Get memory stats from vsish
+MEM_STATS=$(vsish -e get /memory/comprehensive)
 
-# Convert bytes to MB
-TOTAL_MEM_BYTES=$(esxcli hardware memory get | awk '/Physical Memory:/ {print $3}')
-FREE_MEM_BYTES=$(esxcli hardware memory get | awk '/Free Memory:/ {print $3}')
-TOTAL_MEM_MB=$((TOTAL_MEM_BYTES / 1024 / 1024))
-FREE_MEM_MB=$((FREE_MEM_BYTES / 1024 / 1024))
-HOST_MEM_USED_MB=$((TOTAL_MEM_MB - FREE_MEM_MB))
+TOTAL_MEM_KB=$(echo "$MEM_STATS" | grep "Physical memory estimate" | awk -F':' '{print $2}' | awk '{print $1}')
+FREE_MEM_KB=$(echo "$MEM_STATS" | grep "Free:" | awk -F':' '{print $2}' | awk '{print $1}')
 
-echo "Total System Memory: ${TOTAL_MEM_MB} MB"
-echo "Used by Host: ${HOST_MEM_USED_MB} MB"
+TOTAL_MEM_GB=$((TOTAL_MEM_KB / 1024 / 1024))
+FREE_MEM_GB=$((FREE_MEM_KB / 1024 / 1024))
+HOST_MEM_USED_GB=$((TOTAL_MEM_GB - FREE_MEM_GB))
+
+# Calculate usage percentage
+if [ "$TOTAL_MEM_GB" -gt 0 ]; then
+    USAGE_PERCENT=$((HOST_MEM_USED_GB * 100 / TOTAL_MEM_GB))
+else
+    USAGE_PERCENT=0
+fi
+
+echo "Total System Memory: ${TOTAL_MEM_GB} GB"
+echo "Used by Host: ${HOST_MEM_USED_GB} GB (${USAGE_PERCENT}%)"
 echo ""
 
 # List all running VMs
 VM_IDS=$(vim-cmd vmsvc/getallvms | awk 'NR>1 {print $1}')
 
-printf "%-5s %-30s %-10s %-10s %-10s %-10s %-10s\n" "ID" "VM Name" "RAM(MB)" "Balloon(MB)" "Swap(MB)" "Compress(MB)" "Shared(MB)"
-echo "-----------------------------------------------------------------------------------------------"
+# Header
+printf "%-5s %-43s %-8s %-8s %-8s %-10s %-8s %-8s %-10s %-10s %-10s %-10s\n" \
+  "ID" "VM Name" "RAM" "Balloon" "Swap" "Compress" "Shared" "Guest" "Host" "Granted" "Private" "Overhead"
+echo "----------------------------------------------------------------------------------------------------------------------------------"
+
 
 TOTAL_VM_MEM=0
 TOTAL_BALLOON=0
@@ -45,36 +57,32 @@ for VMID in $VM_IDS; do
 
     VM_NAME=$(echo "$VM_SUMMARY" | grep -m1 'name =' | awk -F'"' '{print $2}')
     VM_MEM_MB=$(echo "$VM_SUMMARY" | grep -m1 'memorySizeMB =' | awk -F'= ' '{print $2}' | sed 's/,//')
+    VM_MEM_GB=$(( $VM_MEM_MB / 1024 ))
 
     # Skip if VM name is empty
     if [ -z "$VM_NAME" ]; then
         continue
     fi
 
-    # Get VM world ID
-    VM_WORLD_ID=$(esxcli vm process list | grep -A 1 "VM Name: $VM_NAME" | grep "World ID" | awk '{print $3}')
+    # Extract memory optimization metrics from quickStats
+    extract_kpi() {
+        echo "$VM_SUMMARY" | grep -m1 "$1" | awk '{print $NF}' | sed 's/,//' | grep -E '^[0-9]+$' || echo 0
+    }
 
-    # Initialize metrics
-    BALLOON_MB=0
-    SWAP_MB=0
-    COMPRESS_MB=0
-    SHARED_MB=0
+    BALLOON_MB=$(extract_kpi "balloonedMemory")
+    SWAP_MB=$(extract_kpi "swappedMemory")
+    COMPRESS_MB=$(extract_kpi "compressedMemory")
+    SHARED_MB=$(extract_kpi "sharedMemory")
+    GUEST_MB=$(extract_kpi "guestMemoryUsage")
+    HOST_MB=$(extract_kpi "hostMemoryUsage")
+    GRANTED_MB=$(extract_kpi "grantedMemory")
+    PRIVATE_MB=$(extract_kpi "privateMemory")
+    OVERHEAD_MB=$(extract_kpi "consumedOverheadMemory")
 
-    if [ -n "$VM_WORLD_ID" ]; then
-        MEM_STATS=$(vsish -e get /vm/$VM_WORLD_ID/memstats 2>/dev/null | grep -E 'balloonedPages|swappedPages|compressedPages|sharedPages')
+    printf "%-5s %-43s %-8s %-8s %-8s %-10s %-8s %-8s %-10s %-10s %-10s %-10s\n" \
+    "$VMID" "$VM_NAME" "$(( $VM_MEM_MB / 1024 ))" "$(( $BALLOON_MB / 1024 ))" "$(( $SWAP_MB / 1024 ))" "$(( $COMPRESS_MB / 1024 ))" "$(( $SHARED_MB / 1024 ))" \
+    "$(( $GUEST_MB / 1024 ))" "$(( $HOST_MB / 1024 ))" "$(( $GRANTED_MB / 1024 ))" "$(( $PRIVATE_MB / 1024 ))" "$(( $OVERHEAD_MB / 1024 ))"
 
-        BALLOON_PAGES=$(echo "$MEM_STATS" | grep balloonedPages | awk '{print $2}')
-        SWAP_PAGES=$(echo "$MEM_STATS" | grep swappedPages | awk '{print $2}')
-        COMPRESS_PAGES=$(echo "$MEM_STATS" | grep compressedPages | awk '{print $2}')
-        SHARED_PAGES=$(echo "$MEM_STATS" | grep sharedPages | awk '{print $2}')
-
-        BALLOON_MB=$((BALLOON_PAGES * 4 / 1024))
-        SWAP_MB=$((SWAP_PAGES * 4 / 1024))
-        COMPRESS_MB=$((COMPRESS_PAGES * 4 / 1024))
-        SHARED_MB=$((SHARED_PAGES * 4 / 1024))
-    fi
-
-    printf "%-5s %-30s %-10s %-10s %-10s %-10s %-10s\n" "$VMID" "$VM_NAME" "$VM_MEM_MB" "$BALLOON_MB" "$SWAP_MB" "$COMPRESS_MB" "$SHARED_MB"
 
     TOTAL_VM_MEM=$((TOTAL_VM_MEM + VM_MEM_MB))
     TOTAL_BALLOON=$((TOTAL_BALLOON + BALLOON_MB))
@@ -83,10 +91,11 @@ for VMID in $VM_IDS; do
     TOTAL_SHARED=$((TOTAL_SHARED + SHARED_MB))
 done
 
-echo "-----------------------------------------------------------------------------------------------"
-echo "Total VM Memory Usage: ${TOTAL_VM_MEM} MB"
-echo "Total Ballooned Memory: ${TOTAL_BALLOON} MB"
-echo "Total Swapped Memory: ${TOTAL_SWAP} MB"
-echo "Total Compressed Memory: ${TOTAL_COMPRESS} MB"
-echo "Total Shared Memory: ${TOTAL_SHARED} MB"
-echo "Memory Used by Host (excluding VMs): $((HOST_MEM_USED_MB - TOTAL_VM_MEM)) MB"
+echo "-----------------------------------------------------------------------------------------------------------------------------"
+echo "Total VM Memory Usage: $(( ${TOTAL_VM_MEM} / 1024 )) GB"
+echo "Total Ballooned Memory: $(( ${TOTAL_BALLOON} / 1024 )) GB"
+echo "Total Swapped Memory: $(( ${TOTAL_SWAP} / 1024 )) GB"
+echo "Total Compressed Memory: $(( ${TOTAL_COMPRESS} / 1024 )) GB"
+echo "Total Shared Memory: $(( ${TOTAL_SHARED} / 1024 )) GB"
+echo "Memory Used by Host (excluding VMs): $(( ${HOST_MEM_USED_GB} - (${TOTAL_VM_MEM} / 1024 ) )) GB"
+
