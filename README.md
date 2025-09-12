@@ -1,14 +1,14 @@
-# 🔍 `guacamole-reset-user-otp.sh`
+## 🔍 `guacamole-reset-user-otp.sh`
 
 **Author**: Ciro Iriarte  
 **Created**: 2021-11-02 
 **Updated**: 2021-11-02  
 
-## 📝 Description
+### 📝 Description
 
 `guacamole-reset-user-otp.sh` is a quick script to disable OTP for a user for Guacamole (using native OTP module)
 
-## 🚀 Usage
+### 🚀 Usage
 
 Default view
 
@@ -16,13 +16,13 @@ Default view
 guacamole-reset-user-otp.sh the.user
   ```
 
-# 🔍 `nic-xray.sh`
+## 🔍 `nic-xray.sh`
 
 **Author**: Ciro Iriarte  
 **Created**: 2025-06-05  
 **Updated**: 2025-06-07  
 
-## 📝 Description
+### 📝 Description
 
 `nic-xray.sh` is a diagnostic script that provides a detailed overview of all **physical network interfaces** on a Linux system. It displays:
 
@@ -40,7 +40,7 @@ Originally developed for OpenStack node deployments, it is suitable for any Linu
 
 ---
 
-## ⚙️ Requirements
+### ⚙️ Requirements
 
 - Must be run as **root**
 - Required tools:
@@ -57,7 +57,7 @@ Originally developed for OpenStack node deployments, it is suitable for any Linu
 
 ---
 
-## 💡 Recommendations
+### 💡 Recommendations
 
 - Copy the script to `/usr/local/sbin` for easy access:
   ```bash
@@ -72,7 +72,7 @@ Originally developed for OpenStack node deployments, it is suitable for any Linu
 
 ---
 
-## 🚀 Usage
+### 🚀 Usage
 
 Default view
 
@@ -94,34 +94,87 @@ sudo nic-xray.sh --lacp
 
 ---
 
-## 📤 Output Example
+### 📤 Output Example
 
 ```bash
 echo "Sorry, can't share"
 ```
 
-# 🔍 `create-ssl-csr.sh`
+## 🔍 `create-ssl-csr.sh`
 **Author**: Ciro Iriarte
 **Created**: 2025-06-06
 **Updated**: 2025-06-06
 
-## 📝 Description
+### 📝 Description
 
 `create-ssl-csr.sh`Helps to create a SSL Certificate Signing Request to be shared with a CA entity.
 
 ---
 
-## ⚙️ Requirements
+### ⚙️ Requirements
 
 - Required tools:
   - `openssl`
 
 ---
 
-## 🚀 Usage
+### 🚀 Usage
 
 Edit the variables to match your environment and run the script.
 
 ```bash
 ./create-ssl-csr.sh
+```
+
+## 🔍 `kvm-memory-usage-report.sh`
+**Author**: Ciro Iriarte  
+**Created**: 2025-09-10  
+**Updated**: 2025-09-10  
+
+## 📝 Description
+
+Reports memory usage for KVM-based virtual machines using `virsh`. It provides host memory usage, per-VM allocation, and total memory consumption.
+
+---
+
+## ⚙️ Requirements
+
+- Required tools:
+  - `virsh`
+  - `awk`, `grep`, `sed`
+
+---
+
+## 🚀 Usage
+
+Run the script on a KVM host with libvirt installed:
+
+```bash
+./kvm-memory-usage-report.sh
+```
+
+## 🔍 `esxi-memory-usage-report.sh`
+**Author**: Ciro Iriarte  
+**Created**: 2025-09-10  
+**Updated**: 2025-09-10  
+
+### 📝 Description
+
+Reports memory usage and optimization metrics for ESXi hosts and virtual machines. Uses native ESXi tools to extract host memory, per-VM allocation, and advanced metrics like ballooning, swapping, compression, and shared memory.
+
+### ⚙️ Requirements
+
+- Must be run directly on the ESXi host (via SSH or shell)
+- Required tools:
+  - `virsh`
+  - `awk`, `grep`, `sed`
+
+---
+
+### 🚀 Usage
+
+Run the script from the ESXi shell:
+
+```bash
+./esxi-memory-usage-report.sh
 ```
