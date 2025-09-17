@@ -8,9 +8,10 @@
 # This version is validated to work on Rocky Linux, openSUSE, and Debian/Ubuntu.
 #
 # Author: Ciro Iriarte <ciro.iriarte@millicom.com>
-# Version: 1.2
+# Version: 1.3
 #
 # Changelog:
+#   - 2025-09-17: v1.3 - Fix dependency for iozone on openSUSE
 #   - 2025-09-17: v1.2 - Match GCC for quick-benchmark-cpu for openSUSE 15.6
 #   - 2025-09-17: v1.1 - Use latest PTS for Debian/Ubuntu
 #   - 2025-09-17: v1.0 - Improve documentation.
