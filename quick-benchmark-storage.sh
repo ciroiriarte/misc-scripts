@@ -11,11 +11,12 @@
 # Version: 1.0
 #
 # Changelog:
-#   - 2025-09-17: v0.1 - First draft.
-#   - 2025-09-16: v1.0 - Improve documentation.
+#   - 2025-09-17: v1.1 - Use latest PTS for Debian/Ubuntu
+#   - 2025-09-17: v1.0 - Improve documentation.
 #                      - Fix test working directory.
-#                      - Add release disk function
-#                      - Add option to upload results
+#                      - Add release disk function.
+#                      - Add option to upload results.
+#   - 2025-09-16: v0.1 - First draft.
 
 set -e
 set -o pipefail
@@ -80,7 +81,7 @@ install_packages() {
                 # util-linux provides wipefs
                 sudo apt-get install -y phoronix-test-suite xfsprogs util-linux || {
                     echo "Phoronix Test Suite not found in repo, attempting fallback install..."
-                    wget -O /tmp/phoronix.deb https://phoronix-test-suite.com/releases/repo/pts.debian/files/phoronix-test-suite_10.8.3_all.deb
+                    wget -O /tmp/phoronix.deb https://phoronix-test-suite.com/releases/repo/pts.debian/files/phoronix-test-suite_10.8.4_all.deb
                     sudo dpkg -i /tmp/phoronix.deb
                     sudo apt-get install -f -y # Install dependencies
                 }
