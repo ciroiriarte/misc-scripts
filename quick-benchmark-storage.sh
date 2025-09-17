@@ -126,7 +126,7 @@ setup_opensuse_repo() {
     esac
     sudo zypper ar -f -p 90 "$repo_url" benchmark
     sudo zypper --gpg-auto-import-keys refresh
-    sudo zypper install -y phoronix-test-suite xfsprogs util-linux gcc gcc-c++ ${gcc_extra} make autoconf bison flex libopenssl-devel Mesa-demo-x libelf-devel
+    sudo zypper install -y phoronix-test-suite xfsprogs util-linux gcc gcc-c++ ${gcc_extra} make autoconf bison flex libopenssl-devel Mesa-demo-x libelf-devel libaio-devel
     if [ "$VERSION_ID" == "15.6" ]
     then
     	sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
