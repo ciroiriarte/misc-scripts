@@ -8,7 +8,7 @@
 # This version is validated to work on Rocky Linux, openSUSE, and Debian/Ubuntu.
 #
 # Author: Ciro Iriarte <ciro.iriarte@millicom.com>
-# Version: 1.0
+# Version: 1.2
 #
 # Changelog:
 #   - 2025-09-17: v1.2 - Match GCC for quick-benchmark-cpu for openSUSE 15.6
