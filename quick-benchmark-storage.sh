@@ -8,7 +8,7 @@
 # This version is validated to work on Rocky Linux, openSUSE, and Debian/Ubuntu.
 #
 # Author: Ciro Iriarte <ciro.iriarte@millicom.com>
-# Version: 2.2
+# Version: 1.0
 #
 # Changelog:
 #   - 2025-09-17: v0.1 - First draft.
