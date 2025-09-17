@@ -8,7 +8,7 @@
 # This version is validated to work on Rocky Linux, openSUSE, and Debian/Ubuntu.
 #
 # Author: Ciro Iriarte <ciro.iriarte@millicom.com>
-# Version: 1.3
+# Version: 1.4
 #
 # Changelog:
 #   - 2025-09-17: v1.4 - Fix python dependency for openSUSE
