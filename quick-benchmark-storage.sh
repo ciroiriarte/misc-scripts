@@ -11,6 +11,8 @@
 # Version: 1.3
 #
 # Changelog:
+#   - 2025-09-17: v1.4 - Fix python dependency for openSUSE
+#                      - avoid assuming group name equals username
 #   - 2025-09-17: v1.3 - Fix dependency for iozone on openSUSE
 #   - 2025-09-17: v1.2 - Match GCC for quick-benchmark-cpu for openSUSE 15.6
 #   - 2025-09-17: v1.1 - Use latest PTS for Debian/Ubuntu
@@ -127,7 +129,7 @@ setup_opensuse_repo() {
     esac
     sudo zypper ar -f -p 90 "$repo_url" benchmark
     sudo zypper --gpg-auto-import-keys refresh
-    sudo zypper install -y phoronix-test-suite xfsprogs util-linux gcc gcc-c++ ${gcc_extra} make autoconf bison flex libopenssl-devel Mesa-demo-x libelf-devel libaio-devel
+    sudo zypper install -y phoronix-test-suite xfsprogs util-linux gcc gcc-c++ ${gcc_extra} make autoconf bison flex libopenssl-devel Mesa-demo-x libelf-devel libaio-devel python
     if [ "$VERSION_ID" == "15.6" ]
     then
     	sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
@@ -173,7 +175,7 @@ prepare_disk() {
     sudo mkfs.xfs -f -L "$label" "$device"
     sudo mkdir -p "$mount_point"
     sudo mount LABEL="$label" "$mount_point"
-    sudo chown "$TESTUSER:$TESTUSER" "$mount_point"
+    sudo chown "$TESTUSER:" "$mount_point"
     echo "Disk $device mounted at $mount_point and ready for testing."
 }
 
