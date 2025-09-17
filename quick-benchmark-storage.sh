@@ -12,7 +12,8 @@
 #
 # Changelog:
 #   - 2025-09-17: v0.1 - First draft.
-#   - 2025-09-11: v1.0 - Improve documentation.
+#   - 2025-09-16: v1.0 - Improve documentation.
+#                      - Fix test working directory.
 #                      - Add release disk function
 #                      - Add option to upload results
 
