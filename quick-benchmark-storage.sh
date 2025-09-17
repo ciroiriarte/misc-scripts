@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script Name: kvm-memory-usage-report.sh
+# Script Name: quick-benchmark-storage.sh
 # Description: This script performs destructive I/O benchmarks on specified storage devices.
 #                 It will COMPLETELY WIPE ALL DATA on the disks defined in the DISKS array.
 #                 After testing, it will clean up by unmounting and wiping filesystem signatures.
