@@ -46,6 +46,13 @@ CONFIG_FILE="${FQDN}_csr.conf"
 CERT_FILE="${FQDN}.crt"           # Optional: for self-signed cert
 
 # === Generate OpenSSL Config ===
+if [ "${IS_CA}" = true ]
+then
+        KEY_USAGE="keyCertSign, cRLSign"
+else
+        KEY_USAGE="nonRepudiation, digitalSignature, keyEncipherment"
+fi
+
 cat > "$CONFIG_FILE" <<EOF
 [ req ]
 default_bits       = 2048
@@ -66,7 +73,7 @@ emailAddress = ${EMAIL}
 [ req_ext ]
 subjectAltName = @alt_names
 basicConstraints = CA:${IS_CA}
-keyUsage = ${IS_CA:+keyCertSign, cRLSign}${IS_CA:false:nonRepudiation, digitalSignature, keyEncipherment}
+keyUsage = ${KEY_USAGE}
 
 [ alt_names ]
 DNS.1 = ${FQDN}
