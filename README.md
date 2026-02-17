@@ -232,15 +232,15 @@ Generate a self-signed CA certificate:
 
 ---
 
-## 🔍 `kvm-memory-usage-report.sh`
+## 🔍 `memory-usage-report-kvm.sh`
 
 **Author**: Ciro Iriarte
 **Created**: 2025-09-11
-**Updated**: 2025-09-11
+**Updated**: 2026-02-17
 
 ### 📝 Description
 
-`kvm-memory-usage-report.sh` provides a comprehensive KVM host memory usage and optimization summary. It reports:
+`memory-usage-report-kvm.sh` provides a comprehensive KVM host memory usage and optimization summary. It reports:
 
 - Host total, available, and used memory
 - Per-VM memory allocation (max, current, guest used, guest free)
@@ -276,20 +276,20 @@ Generate a self-signed CA certificate:
 Run the report:
 
 ```bash
-sudo ./kvm-memory-usage-report.sh
+sudo ./memory-usage-report-kvm.sh
 ```
 
 ---
 
-## 🔍 `esxi-memory-usage-report.sh`
+## 🔍 `memory-usage-report-esxi.sh`
 
 **Author**: Ciro Iriarte
 **Created**: 2025-09-11
-**Updated**: 2025-09-11
+**Updated**: 2026-02-17
 
 ### 📝 Description
 
-`esxi-memory-usage-report.sh` reports memory usage and optimization metrics for ESXi hosts and virtual machines. It uses native ESXi tools to extract host memory, per-VM allocation, and advanced metrics like ballooning, swapping, compression, and shared memory.
+`memory-usage-report-esxi.sh` reports memory usage and optimization metrics for ESXi hosts and virtual machines. It uses native ESXi tools to extract host memory, per-VM allocation, and advanced metrics like ballooning, swapping, compression, and shared memory.
 
 ---
 
@@ -315,7 +315,7 @@ sudo ./kvm-memory-usage-report.sh
 Run the report from the ESXi shell:
 
 ```bash
-./esxi-memory-usage-report.sh
+./memory-usage-report-esxi.sh
 ```
 
 ---
