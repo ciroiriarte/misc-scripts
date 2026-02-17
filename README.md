@@ -348,15 +348,15 @@ JSON output (full report):
 
 ---
 
-## 🔍 `openstack-domain-resource-summary.sh`
+## 🔍 `memory-usage-report-openstack.sh`
 
 **Author**: Ciro Iriarte
 **Created**: 2025-12-24
-**Updated**: 2025-12-24
+**Updated**: 2026-02-17
 
 ### 📝 Description
 
-`openstack-domain-resource-summary.sh` provides an accurate summary of OpenStack resources per domain, with a per-project breakdown. It reports:
+`memory-usage-report-openstack.sh` provides an accurate summary of OpenStack resources per domain, with a per-project breakdown. It reports:
 
 - Instance count per project
 - vCPU and RAM allocation per project
@@ -389,5 +389,11 @@ JSON output (full report):
 Summarize resources for a specific domain:
 
 ```bash
-./openstack-domain-resource-summary.sh my-domain
+./memory-usage-report-openstack.sh my-domain
+```
+
+Display help:
+
+```bash
+./memory-usage-report-openstack.sh --help
 ```
