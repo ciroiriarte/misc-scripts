@@ -33,11 +33,12 @@ LANG=en_US.UTF-8
 SHOW_LACP=false
 SHOW_VLAN=false
 SHOW_BMAC=false
+SHOW_SEPARATOR=false
 OUTPUT_FORMAT="table"
 
 
 # Parse options using getopt
-OPTIONS=$(getopt -o h --long help,lacp,vlan,bmac,output: -n "$0" -- "$@")
+OPTIONS=$(getopt -o hs --long help,lacp,vlan,bmac,separator,output: -n "$0" -- "$@")
 if [ $? -ne 0 ]; then
 	echo "Failed to parse options." >&2
 	exit 1
@@ -62,6 +63,10 @@ while true; do
 			SHOW_BMAC=true
 			shift
 			;;
+		-s|--separator)
+			SHOW_SEPARATOR=true
+			shift
+			;;
 		--output)
 			case "$2" in
 				table|csv|json)
@@ -75,7 +80,7 @@ while true; do
 			shift 2
 			;;
 		-h|--help)
-			echo -e "Usage: $0 [--lacp] [--vlan] [--bmac] [--output FORMAT] [--help]"
+			echo -e "Usage: $0 [--lacp] [--vlan] [--bmac] [-s|--separator] [--output FORMAT] [--help]"
 			echo -e ""
 			echo -e "Description:"
 			echo -e " Lists physical network interfaces with detailed information including:"
@@ -86,6 +91,8 @@ while true; do
 			echo -e " --lacp         Show LACP Aggregator ID and Partner MAC per interface"
 			echo -e " --vlan         Show VLAN tagging information (from LLDP)"
 			echo -e " --bmac         Show bridge MAC address"
+			echo -e " -s, --separator"
+			echo -e "                Show column separators in table output"
 			echo -e " --output TYPE  Output format: table (default), csv, or json"
 			echo -e " --help         Display this help message"
 			exit 0
@@ -144,31 +151,31 @@ pad_color() {
     local WIDTH="$2"
     local STRIPPED=$(strip_ansi "$TEXT")
     local PAD=$((WIDTH - ${#STRIPPED}))
-    printf "%s%*s" "$TEXT" "$PAD" ""
+    printf "%b%*s" "$TEXT" "$PAD" ""
 }
 
-# --- Header ---
-case ${OUTPUT_FORMAT} in
-	table)
-		FSEP="\t"
-		;;
-	csv)
-		FSEP=","
-		;;
-	*)
-		echo "something went wrong"
-		exit 1
-		;;
-esac
+# --- Helper: compute max width from header label and data values ---
+max_width() {
+    local HEADER="$1"
+    shift
+    local MAX=${#HEADER}
+    for VAL in "$@"; do
+        (( ${#VAL} > MAX )) && MAX=${#VAL}
+    done
+    echo "$MAX"
+}
 
-printf "%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%b${FSEP}%s${FSEP}%b${FSEP}" "Device" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
-${SHOW_BMAC} && printf "%b${FSEP}" "Bond MAC"
-${SHOW_LACP} && printf "%b${FSEP}" "LACP Status"
-${SHOW_VLAN} && printf "%s${FSEP}" "VLAN"
-printf "%s${FSEP}%s\n" "Switch Name" "Port Name"
-[[ ${OUTPUT_FORMAT} == "table" ]] && echo -e "----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------"
+# --- Data Collection Arrays ---
+declare -a DATA_DEVICE DATA_FIRMWARE DATA_IFACE DATA_MAC DATA_MTU
+declare -a DATA_LINK_PLAIN DATA_LINK_COLOR
+declare -a DATA_SPEED
+declare -a DATA_BOND_PLAIN DATA_BOND_COLOR
+declare -a DATA_BMAC
+declare -a DATA_LACP_PLAIN DATA_LACP_COLOR
+declare -a DATA_VLAN DATA_SWITCH DATA_PORT
+ROW_COUNT=0
 
-# --- Main Logic ---
+# --- Data Collection ---
 for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|tun'); do
     [[ "$IFACE" == *.* ]] && continue
 
@@ -180,7 +187,13 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
     MTU=$(cat /sys/class/net/$IFACE/mtu 2>/dev/null)
 
     LINK_RAW=$(cat /sys/class/net/$IFACE/operstate 2>/dev/null)
-    LINK_STATUS=$([[ "$LINK_RAW" == "up" ]] && echo -e "${GREEN}up${RESET_COLOR}" || echo -e "${RED}down${RESET_COLOR}")
+    if [[ "$LINK_RAW" == "up" ]]; then
+        LINK_PLAIN="up"
+        LINK_COLOR="${GREEN}up${RESET_COLOR}"
+    else
+        LINK_PLAIN="down"
+        LINK_COLOR="${RED}down${RESET_COLOR}"
+    fi
 
     SPEED=$(ethtool "$IFACE" 2>/dev/null | awk -F': ' '/Speed:/ {print $2}' | sed 's/Unknown.*/N\/A/')
     DUPLEX=$(ethtool "$IFACE" 2>/dev/null | awk -F': ' '/Duplex:/ {print $2}' | sed 's/Unknown.*/N\/A/')
@@ -197,19 +210,22 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
             BOND_COLORS[$BOND_MASTER]=${COLOR_CODES[$COLOR_INDEX]}
             ((COLOR_INDEX=(COLOR_INDEX+1)%${#COLOR_CODES[@]}))
         fi
-        COLORED_BOND="${BOND_COLORS[$BOND_MASTER]}$(printf '%s' "${BOND_MASTER}")${RESET_COLOR}"
+        BOND_COLOR="${BOND_COLORS[$BOND_MASTER]}${BOND_MASTER}${RESET_COLOR}"
+        BOND_PLAIN="$BOND_MASTER"
         MAC=$(grep -E "Slave Interface: ${IFACE}|Permanent HW addr" /proc/net/bonding/${BOND_MASTER} |grep -A1 "Slave Interface: ${IFACE}"|tail -1|awk '{ print $4}' 2>/dev/null)
         BMAC=$(grep "System MAC address" /proc/net/bonding/${BOND_MASTER}|awk '{ print $4 }' 2>/dev/null)
     else
-        COLORED_BOND=$(printf "%s" "${BOND_MASTER}")
+        BOND_COLOR="$BOND_MASTER"
+        BOND_PLAIN="$BOND_MASTER"
         MAC=$(cat /sys/class/net/${IFACE}/address 2>/dev/null)
         BMAC="N/A"
     fi
 
     # LACP Status
-    LACP_STATUS="N/A"
+    LACP_PLAIN="N/A"
+    LACP_COLOR="N/A"
     if $SHOW_LACP && [[ "$BOND_MASTER" != "None" && -f /proc/net/bonding/$BOND_MASTER ]]; then
-        LACP_STATUS=$(awk -v IFACE="$IFACE" '
+        LACP_PLAIN=$(awk -v IFACE="$IFACE" '
             BEGIN { in_iface=0; in_actor=0; in_partner=0; agg=""; peer=""; state="" }
             $0 ~ "^Slave Interface: "IFACE"$" { in_iface=1; next }
             in_iface && /^Slave Interface:/ { in_iface=0 }
@@ -228,12 +244,12 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
             }
         ' /proc/net/bonding/$BOND_MASTER)
 
-        if [[ "$LACP_STATUS" == *"(Partial)"* ]]; then
-            LACP_STATUS="${YELLOW}${LACP_STATUS}${RESET_COLOR}"
-        elif [[ "$LACP_STATUS" == AggID* ]]; then
-            LACP_STATUS="${GREEN}${LACP_STATUS}${RESET_COLOR}"
+        if [[ "$LACP_PLAIN" == *"(Partial)"* ]]; then
+            LACP_COLOR="${YELLOW}${LACP_PLAIN}${RESET_COLOR}"
+        elif [[ "$LACP_PLAIN" == AggID* ]]; then
+            LACP_COLOR="${GREEN}${LACP_PLAIN}${RESET_COLOR}"
         else
-            LACP_STATUS="${RED}${LACP_STATUS}${RESET_COLOR}"
+            LACP_COLOR="${RED}${LACP_PLAIN}${RESET_COLOR}"
         fi
     fi
 
@@ -258,10 +274,97 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
 	fi
     fi
 
-    # Output
-    printf "%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%s${FSEP}%b${FSEP}%s${FSEP}%b${FSEP}" "$DEVICE" "$FIRMWARE" "$IFACE" "$MAC" "$MTU" "$LINK_STATUS" "$SPEED_DUPLEX" "$COLORED_BOND"
-    ${SHOW_BMAC} && printf "%b${FSEP}" "${BMAC}"
-    ${SHOW_LACP} && printf "%b${FSEP}" "${LACP_STATUS}"
-    ${SHOW_VLAN} && printf "%s${FSEP}" "${VLAN_INFO}"
-    printf "%s${FSEP}%s\n" "${SWITCH_NAME}" "${PORT_NAME}"
+    # Store collected data
+    DATA_DEVICE[$ROW_COUNT]="$DEVICE"
+    DATA_FIRMWARE[$ROW_COUNT]="$FIRMWARE"
+    DATA_IFACE[$ROW_COUNT]="$IFACE"
+    DATA_MAC[$ROW_COUNT]="$MAC"
+    DATA_MTU[$ROW_COUNT]="$MTU"
+    DATA_LINK_PLAIN[$ROW_COUNT]="$LINK_PLAIN"
+    DATA_LINK_COLOR[$ROW_COUNT]="$LINK_COLOR"
+    DATA_SPEED[$ROW_COUNT]="$SPEED_DUPLEX"
+    DATA_BOND_PLAIN[$ROW_COUNT]="$BOND_PLAIN"
+    DATA_BOND_COLOR[$ROW_COUNT]="$BOND_COLOR"
+    DATA_BMAC[$ROW_COUNT]="$BMAC"
+    DATA_LACP_PLAIN[$ROW_COUNT]="$LACP_PLAIN"
+    DATA_LACP_COLOR[$ROW_COUNT]="$LACP_COLOR"
+    DATA_VLAN[$ROW_COUNT]="$VLAN_INFO"
+    DATA_SWITCH[$ROW_COUNT]="$SWITCH_NAME"
+    DATA_PORT[$ROW_COUNT]="$PORT_NAME"
+    ((ROW_COUNT++))
 done
+
+# --- Compute Dynamic Column Widths ---
+COL_W_DEVICE=$(max_width "Device" "${DATA_DEVICE[@]}")
+COL_W_FIRMWARE=$(max_width "Firmware" "${DATA_FIRMWARE[@]}")
+COL_W_IFACE=$(max_width "Interface" "${DATA_IFACE[@]}")
+COL_W_MAC=$(max_width "MAC Address" "${DATA_MAC[@]}")
+COL_W_MTU=$(max_width "MTU" "${DATA_MTU[@]}")
+COL_W_LINK=$(max_width "Link" "${DATA_LINK_PLAIN[@]}")
+COL_W_SPEED=$(max_width "Speed/Duplex" "${DATA_SPEED[@]}")
+COL_W_BOND=$(max_width "Parent Bond" "${DATA_BOND_PLAIN[@]}")
+COL_W_BMAC=$(max_width "Bond MAC" "${DATA_BMAC[@]}")
+COL_W_LACP=$(max_width "LACP Status" "${DATA_LACP_PLAIN[@]}")
+COL_W_VLAN=$(max_width "VLAN" "${DATA_VLAN[@]}")
+COL_W_SWITCH=$(max_width "Switch Name" "${DATA_SWITCH[@]}")
+COL_W_PORT=$(max_width "Port Name" "${DATA_PORT[@]}")
+
+# --- Column Gap ---
+if ${SHOW_SEPARATOR}; then
+    COL_GAP=" │ "
+else
+    COL_GAP="   "
+fi
+COL_GAP_WIDTH=${#COL_GAP}
+
+# --- Output ---
+if [[ "${OUTPUT_FORMAT}" == "table" ]]; then
+    # Header
+    printf "%-${COL_W_DEVICE}s${COL_GAP}%-${COL_W_FIRMWARE}s${COL_GAP}%-${COL_W_IFACE}s${COL_GAP}%-${COL_W_MAC}s${COL_GAP}%-${COL_W_MTU}s${COL_GAP}%-${COL_W_LINK}s${COL_GAP}%-${COL_W_SPEED}s${COL_GAP}%-${COL_W_BOND}s" \
+        "Device" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
+    ${SHOW_BMAC} && printf "${COL_GAP}%-${COL_W_BMAC}s" "Bond MAC"
+    ${SHOW_LACP} && printf "${COL_GAP}%-${COL_W_LACP}s" "LACP Status"
+    ${SHOW_VLAN} && printf "${COL_GAP}%-${COL_W_VLAN}s" "VLAN"
+    printf "${COL_GAP}%-${COL_W_SWITCH}s${COL_GAP}%s\n" "Switch Name" "Port Name"
+    # Separator line
+    SEP_WIDTH=$((COL_W_DEVICE + COL_GAP_WIDTH + COL_W_FIRMWARE + COL_GAP_WIDTH + COL_W_IFACE + COL_GAP_WIDTH + COL_W_MAC + COL_GAP_WIDTH + COL_W_MTU + COL_GAP_WIDTH + COL_W_LINK + COL_GAP_WIDTH + COL_W_SPEED + COL_GAP_WIDTH + COL_W_BOND))
+    ${SHOW_BMAC} && SEP_WIDTH=$((SEP_WIDTH + COL_GAP_WIDTH + COL_W_BMAC))
+    ${SHOW_LACP} && SEP_WIDTH=$((SEP_WIDTH + COL_GAP_WIDTH + COL_W_LACP))
+    ${SHOW_VLAN} && SEP_WIDTH=$((SEP_WIDTH + COL_GAP_WIDTH + COL_W_VLAN))
+    SEP_WIDTH=$((SEP_WIDTH + COL_GAP_WIDTH + COL_W_SWITCH + COL_GAP_WIDTH + COL_W_PORT))
+    printf '%*s\n' "$SEP_WIDTH" '' | tr ' ' '-'
+    # Data rows
+    for ((i = 0; i < ROW_COUNT; i++)); do
+        printf "%-${COL_W_DEVICE}s${COL_GAP}%-${COL_W_FIRMWARE}s${COL_GAP}%-${COL_W_IFACE}s${COL_GAP}%-${COL_W_MAC}s${COL_GAP}%-${COL_W_MTU}s${COL_GAP}" \
+            "${DATA_DEVICE[$i]}" "${DATA_FIRMWARE[$i]}" "${DATA_IFACE[$i]}" "${DATA_MAC[$i]}" "${DATA_MTU[$i]}"
+        pad_color "${DATA_LINK_COLOR[$i]}" "$COL_W_LINK"
+        printf "${COL_GAP}%-${COL_W_SPEED}s${COL_GAP}" "${DATA_SPEED[$i]}"
+        pad_color "${DATA_BOND_COLOR[$i]}" "$COL_W_BOND"
+        if ${SHOW_BMAC}; then
+            printf "${COL_GAP}%-${COL_W_BMAC}s" "${DATA_BMAC[$i]}"
+        fi
+        if ${SHOW_LACP}; then
+            printf "${COL_GAP}"
+            pad_color "${DATA_LACP_COLOR[$i]}" "$COL_W_LACP"
+        fi
+        ${SHOW_VLAN} && printf "${COL_GAP}%-${COL_W_VLAN}s" "${DATA_VLAN[$i]}"
+        printf "${COL_GAP}%-${COL_W_SWITCH}s${COL_GAP}%s\n" "${DATA_SWITCH[$i]}" "${DATA_PORT[$i]}"
+    done
+elif [[ "${OUTPUT_FORMAT}" == "csv" ]]; then
+    # CSV Header
+    printf "%s,%s,%s,%s,%s,%s,%s,%s" "Device" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
+    ${SHOW_BMAC} && printf ",%s" "Bond MAC"
+    ${SHOW_LACP} && printf ",%s" "LACP Status"
+    ${SHOW_VLAN} && printf ",%s" "VLAN"
+    printf ",%s,%s\n" "Switch Name" "Port Name"
+    # CSV Data rows
+    for ((i = 0; i < ROW_COUNT; i++)); do
+        printf "%s,%s,%s,%s,%s,%s,%s,%s" \
+            "${DATA_DEVICE[$i]}" "${DATA_FIRMWARE[$i]}" "${DATA_IFACE[$i]}" "${DATA_MAC[$i]}" \
+            "${DATA_MTU[$i]}" "${DATA_LINK_PLAIN[$i]}" "${DATA_SPEED[$i]}" "${DATA_BOND_PLAIN[$i]}"
+        ${SHOW_BMAC} && printf ",%s" "${DATA_BMAC[$i]}"
+        ${SHOW_LACP} && printf ",%s" "${DATA_LACP_PLAIN[$i]}"
+        ${SHOW_VLAN} && printf ",%s" "${DATA_VLAN[$i]}"
+        printf ",%s,%s\n" "${DATA_SWITCH[$i]}" "${DATA_PORT[$i]}"
+    done
+fi
