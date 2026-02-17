@@ -154,6 +154,14 @@ pad_color() {
     printf "%b%*s" "$TEXT" "$PAD" ""
 }
 
+# --- Helper: escape string for JSON output ---
+json_escape() {
+    local STR="$1"
+    STR="${STR//\\/\\\\}"
+    STR="${STR//\"/\\\"}"
+    printf '%s' "$STR"
+}
+
 # --- Helper: compute max width from header label and data values ---
 max_width() {
     local HEADER="$1"
@@ -367,4 +375,34 @@ elif [[ "${OUTPUT_FORMAT}" == "csv" ]]; then
         ${SHOW_VLAN} && printf ",%s" "${DATA_VLAN[$i]}"
         printf ",%s,%s\n" "${DATA_SWITCH[$i]}" "${DATA_PORT[$i]}"
     done
+elif [[ "${OUTPUT_FORMAT}" == "json" ]]; then
+    printf '[\n'
+    for ((i = 0; i < ROW_COUNT; i++)); do
+        printf '  {\n'
+        printf '    "device": "%s",\n' "$(json_escape "${DATA_DEVICE[$i]}")"
+        printf '    "firmware": "%s",\n' "$(json_escape "${DATA_FIRMWARE[$i]}")"
+        printf '    "interface": "%s",\n' "$(json_escape "${DATA_IFACE[$i]}")"
+        printf '    "mac_address": "%s",\n' "$(json_escape "${DATA_MAC[$i]}")"
+        printf '    "mtu": %s,\n' "${DATA_MTU[$i]:-0}"
+        printf '    "link": "%s",\n' "$(json_escape "${DATA_LINK_PLAIN[$i]}")"
+        printf '    "speed_duplex": "%s",\n' "$(json_escape "${DATA_SPEED[$i]}")"
+        printf '    "parent_bond": "%s"' "$(json_escape "${DATA_BOND_PLAIN[$i]}")"
+        if ${SHOW_BMAC}; then
+            printf ',\n    "bond_mac": "%s"' "$(json_escape "${DATA_BMAC[$i]}")"
+        fi
+        if ${SHOW_LACP}; then
+            printf ',\n    "lacp_status": "%s"' "$(json_escape "${DATA_LACP_PLAIN[$i]}")"
+        fi
+        if ${SHOW_VLAN}; then
+            printf ',\n    "vlan": "%s"' "$(json_escape "${DATA_VLAN[$i]}")"
+        fi
+        printf ',\n    "switch_name": "%s"' "$(json_escape "${DATA_SWITCH[$i]}")"
+        printf ',\n    "port_name": "%s"' "$(json_escape "${DATA_PORT[$i]}")"
+        printf '\n  }'
+        if (( i < ROW_COUNT - 1 )); then
+            printf ','
+        fi
+        printf '\n'
+    done
+    printf ']\n'
 fi

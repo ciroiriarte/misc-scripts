@@ -18,9 +18,9 @@ guacamole-reset-user-otp.sh the.user
 
 ## 🔍 `nic-xray.sh`
 
-**Author**: Ciro Iriarte  
-**Created**: 2025-06-05  
-**Updated**: 2025-06-07  
+**Author**: Ciro Iriarte
+**Created**: 2025-06-05
+**Updated**: 2026-02-17
 
 ### 📝 Description
 
@@ -35,6 +35,9 @@ guacamole-reset-user-otp.sh the.user
 - Negotiated speed and duplex
 - Bond membership (with color)
 - LLDP peer information (switch and port)
+- Optionally: LACP status, VLAN tagging, bond MAC address
+
+Supports multiple output formats: **table** (default, with dynamic column widths), **CSV**, and **JSON**.
 
 Originally developed for OpenStack node deployments, it is suitable for any Linux environment.
 
@@ -78,7 +81,7 @@ Default view
 
 ```bash
 sudo nic-xray.sh
-  ```
+```
 
 Show VLAN information
 
@@ -90,6 +93,31 @@ Show LACP peer information
 
 ```bash
 sudo nic-xray.sh --lacp
+```
+
+Table output with column separators
+
+```bash
+sudo nic-xray.sh -s
+sudo nic-xray.sh --separator
+```
+
+CSV output
+
+```bash
+sudo nic-xray.sh --output csv
+```
+
+JSON output
+
+```bash
+sudo nic-xray.sh --output json
+```
+
+All optional columns with JSON output
+
+```bash
+sudo nic-xray.sh --vlan --lacp --bmac --output json
 ```
 
 ---
