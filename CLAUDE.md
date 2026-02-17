@@ -1,0 +1,28 @@
+# Misc sysadmin/infra scripts repository
+
+## 1. Objetives
+* Consolidate scripts to simplify some repetitive operations
+
+## 2. Technical Stack & Dependencies
+* **Language:** Modern Bash
+
+## 3. Coding Rules & Constraints
+* Should use bash native capabilities as much as possible before falling back to external tools
+* No magic strings, define variables with default values when required
+* Coding style should be unified/standardized
+* Options should always handle long and short alternatives.
+* Help function must always exist.
+* Execution of scripts that require parameters must present the user with a usage message when no parameter is provided.
+* Output formatting should be clean & aesthetic, clear to the user.
+* Use process bars to allow the user to understand process progress. Implement that only when formated output is not requested (CSV, JSON, etc)
+* Use functions when scripts become long and complex.
+
+## 4. Documentation
+* Each script should have an entry in the README.md file
+* Each entry shoul include name of the script, Author: Ciro Iriarte, Creation date, update date,, Description, Requirements, Recommendations and usage example.
+* Use UTF-8 based icons to make reading easier.
+* Format should be consistent
+
+## 5. Security
+* Safe variable handling is required.
+* Apply relevant safe coding practices you may know about.
