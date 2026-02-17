@@ -51,7 +51,7 @@ Reset OTP for a specific user:
 - MAC address
 - MTU
 - Link status (with color)
-- Negotiated speed and duplex
+- Negotiated speed and duplex (color-coded by tier: 200G magenta, 100G cyan, 25G/40G/50G white, 10G green, 1G yellow, <1G/unknown red)
 - Bond membership (with color)
 - LLDP peer information (switch and port)
 - Optionally: LACP status, VLAN tagging, bond MAC address
@@ -120,17 +120,35 @@ Show bond MAC address:
 sudo nic-xray.sh --bmac
 ```
 
-Table output with column separators:
+Table output with `│` column separators:
 
 ```bash
 sudo nic-xray.sh -s
 sudo nic-xray.sh --separator
 ```
 
+Table output with a custom separator:
+
+```bash
+sudo nic-xray.sh --separator='|'
+```
+
 CSV output:
 
 ```bash
 sudo nic-xray.sh --output csv
+```
+
+Pipe-delimited CSV:
+
+```bash
+sudo nic-xray.sh --output csv --separator='|'
+```
+
+Tab-separated CSV:
+
+```bash
+sudo nic-xray.sh --output csv --separator=$'\t'
 ```
 
 JSON output:
@@ -143,6 +161,13 @@ All optional columns with JSON output:
 
 ```bash
 sudo nic-xray.sh --vlan --lacp --bmac --output json
+```
+
+Group rows by bond (bonded interfaces first, then unbonded):
+
+```bash
+sudo nic-xray.sh --group-bond
+sudo nic-xray.sh --group-bond --lacp -s
 ```
 
 Display help:
