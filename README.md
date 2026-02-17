@@ -1,20 +1,39 @@
+# Misc Sysadmin & Infrastructure Scripts
+
+A collection of Bash scripts to simplify repetitive sysadmin and infrastructure operations.
+
+---
+
 ## 🔍 `guacamole-reset-user-otp.sh`
 
-**Author**: Ciro Iriarte  
-**Created**: 2021-11-02 
-**Updated**: 2021-11-02  
+**Author**: Ciro Iriarte
+**Created**: 2021-11-02
+**Updated**: 2021-11-02
 
 ### 📝 Description
 
-`guacamole-reset-user-otp.sh` is a quick script to disable OTP for a user for Guacamole (using native OTP module)
+`guacamole-reset-user-otp.sh` resets the TOTP (Time-based One-Time Password) enrollment for a specified user in Apache Guacamole. After running, the user will need to re-enroll their OTP device on next login.
+
+---
+
+### ⚙️ Requirements
+
+- Required tools:
+  - `mysql` (MySQL/MariaDB client)
+- A working Guacamole database with the native TOTP module enabled
+- Database credentials configured in `~/.my.cnf` or edited directly in the script
+
+---
 
 ### 🚀 Usage
 
-Default view
+Reset OTP for a specific user:
 
 ```bash
-guacamole-reset-user-otp.sh the.user
-  ```
+./guacamole-reset-user-otp.sh ciro.iriarte
+```
+
+---
 
 ## 🔍 `nic-xray.sh`
 
@@ -49,7 +68,7 @@ Originally developed for OpenStack node deployments, it is suitable for any Linu
 - Required tools:
   - `ethtool`
   - `lldpctl`
-  - `awk`, `grep`, `cat`, `readlink`
+  - `ip`, `awk`, `grep`, `cat`, `readlink`
 - Switch configuration:
   - Switch should advertise LLDP messages
   - Cisco doesn't include VLAN information by default.
@@ -77,65 +96,73 @@ Originally developed for OpenStack node deployments, it is suitable for any Linu
 
 ### 🚀 Usage
 
-Default view
+Default view:
 
 ```bash
 sudo nic-xray.sh
 ```
 
-Show VLAN information
+Show VLAN information:
 
 ```bash
 sudo nic-xray.sh --vlan
 ```
 
-Show LACP peer information
+Show LACP peer information:
 
 ```bash
 sudo nic-xray.sh --lacp
 ```
 
-Table output with column separators
+Show bond MAC address:
+
+```bash
+sudo nic-xray.sh --bmac
+```
+
+Table output with column separators:
 
 ```bash
 sudo nic-xray.sh -s
 sudo nic-xray.sh --separator
 ```
 
-CSV output
+CSV output:
 
 ```bash
 sudo nic-xray.sh --output csv
 ```
 
-JSON output
+JSON output:
 
 ```bash
 sudo nic-xray.sh --output json
 ```
 
-All optional columns with JSON output
+All optional columns with JSON output:
 
 ```bash
 sudo nic-xray.sh --vlan --lacp --bmac --output json
 ```
 
----
-
-### 📤 Output Example
+Display help:
 
 ```bash
-echo "Sorry, can't share"
+sudo nic-xray.sh -h
+sudo nic-xray.sh --help
 ```
 
+---
+
 ## 🔍 `create-ssl-csr.sh`
+
 **Author**: Ciro Iriarte
 **Created**: 2025-06-06
-**Updated**: 2025-06-06
+**Updated**: 2025-10-07
 
 ### 📝 Description
 
-`create-ssl-csr.sh`Helps to create a SSL Certificate Signing Request to be shared with a CA entity.
+`create-ssl-csr.sh` helps create an SSL Certificate Signing Request (CSR) to be shared with a Certificate Authority. It generates a private key and CSR based on configurable variables defined in the script. Optionally, it can generate a CA certificate or a self-signed certificate.
 
 ---
 
@@ -146,63 +173,168 @@ echo "Sorry, can't share"
 
 ---
 
+### 💡 Recommendations
+
+- Edit the configuration variables at the top of the script (`SITE`, `ORGDOMAIN`, `COUNTRY`, `STATE`, etc.) to match your environment before running.
+
+---
+
 ### 🚀 Usage
 
-Edit the variables to match your environment and run the script.
+Generate a standard CSR:
 
 ```bash
 ./create-ssl-csr.sh
 ```
 
-## 🔍 `kvm-memory-usage-report.sh`
-**Author**: Ciro Iriarte  
-**Created**: 2025-09-10  
-**Updated**: 2025-09-10  
-
-## 📝 Description
-
-Reports memory usage for KVM-based virtual machines using `virsh`. It provides host memory usage, per-VM allocation, and total memory consumption.
-
----
-
-## ⚙️ Requirements
-
-- Required tools:
-  - `virsh`
-  - `awk`, `grep`, `sed`
-
----
-
-## 🚀 Usage
-
-Run the script on a KVM host with libvirt installed:
+Generate a CA certificate signing request:
 
 ```bash
-./kvm-memory-usage-report.sh
+./create-ssl-csr.sh --ca
 ```
 
-## 🔍 `esxi-memory-usage-report.sh`
-**Author**: Ciro Iriarte  
-**Created**: 2025-09-10  
-**Updated**: 2025-09-10  
+Generate a self-signed certificate:
+
+```bash
+./create-ssl-csr.sh --self-signed
+```
+
+Generate a self-signed CA certificate:
+
+```bash
+./create-ssl-csr.sh --ca --self-signed
+```
+
+---
+
+## 🔍 `kvm-memory-usage-report.sh`
+
+**Author**: Ciro Iriarte
+**Created**: 2025-09-11
+**Updated**: 2025-09-11
 
 ### 📝 Description
 
-Reports memory usage and optimization metrics for ESXi hosts and virtual machines. Uses native ESXi tools to extract host memory, per-VM allocation, and advanced metrics like ballooning, swapping, compression, and shared memory.
+`kvm-memory-usage-report.sh` provides a comprehensive KVM host memory usage and optimization summary. It reports:
+
+- Host total, available, and used memory
+- Per-VM memory allocation (max, current, guest used, guest free)
+- Per-VM guest swap activity (swap in/out)
+- KSM (Kernel Same-page Merging) savings
+- Host-level configuration (hugepages, overcommit settings)
+- Optional baseline comparison for tracking memory changes over time
+
+---
 
 ### ⚙️ Requirements
 
-- Must be run directly on the ESXi host (via SSH or shell)
+- Must be run as **root**
 - Required tools:
-  - `virsh`
-  - `awk`, `grep`, `sed`
+  - `virsh` (libvirt)
+  - `bc`, `getconf`, `free`, `sysctl`
+  - `awk`, `grep`
+
+---
+
+### 💡 Recommendations
+
+- Run on a KVM host with libvirt installed and VMs running for meaningful output.
+- Create a memory baseline for future comparisons:
+  ```bash
+  (echo "# Recorded on: $(date)"; free -m) > /var/log/mem_baseline.txt
+  ```
 
 ---
 
 ### 🚀 Usage
 
-Run the script from the ESXi shell:
+Run the report:
+
+```bash
+sudo ./kvm-memory-usage-report.sh
+```
+
+---
+
+## 🔍 `esxi-memory-usage-report.sh`
+
+**Author**: Ciro Iriarte
+**Created**: 2025-09-11
+**Updated**: 2025-09-11
+
+### 📝 Description
+
+`esxi-memory-usage-report.sh` reports memory usage and optimization metrics for ESXi hosts and virtual machines. It uses native ESXi tools to extract host memory, per-VM allocation, and advanced metrics like ballooning, swapping, compression, and shared memory.
+
+---
+
+### ⚙️ Requirements
+
+- Must be run directly on the **ESXi host** (via SSH or shell)
+- Required tools:
+  - `vsish`
+  - `vim-cmd`
+  - `awk`, `grep`, `sed`
+
+---
+
+### 💡 Recommendations
+
+- Ensure SSH access is enabled on the ESXi host.
+- Review ballooning and swap metrics to identify memory pressure on VMs.
+
+---
+
+### 🚀 Usage
+
+Run the report from the ESXi shell:
 
 ```bash
 ./esxi-memory-usage-report.sh
+```
+
+---
+
+## 🔍 `openstack-domain-resource-summary.sh`
+
+**Author**: Ciro Iriarte
+**Created**: 2025-12-24
+**Updated**: 2025-12-24
+
+### 📝 Description
+
+`openstack-domain-resource-summary.sh` provides an accurate summary of OpenStack resources per domain, with a per-project breakdown. It reports:
+
+- Instance count per project
+- vCPU and RAM allocation per project
+- Volume count and total volume size per project
+- Domain-wide totals
+
+---
+
+### ⚙️ Requirements
+
+- Required tools:
+  - `openstack` CLI (configured with admin or domain admin scope)
+  - `jq`
+- A sourced OpenStack credentials file (e.g., `openrc.sh`)
+
+---
+
+### 💡 Recommendations
+
+- Source your OpenStack credentials before running:
+  ```bash
+  source ~/openrc.sh
+  ```
+- For large domains with many projects, execution may take time due to API queries per project and server.
+
+---
+
+### 🚀 Usage
+
+Summarize resources for a specific domain:
+
+```bash
+./openstack-domain-resource-summary.sh my-domain
 ```
