@@ -2,6 +2,19 @@
 
 A collection of Bash scripts to simplify repetitive sysadmin and infrastructure operations.
 
+## 📦 Latest Release: [v2.0](https://github.com/ciroiriarte/misc-scripts/releases/tag/v2.0)
+
+| Script | Version |
+|---|---|
+| `nic-xray.sh` | 1.3 |
+| `memory-usage-report-kvm.sh` | 2.4 |
+| `memory-usage-report-esxi.sh` | 1.2 |
+| `memory-usage-report-openstack.sh` | 0.2 |
+| `create-ssl-csr.sh` | 1.1 |
+| `guacamole-reset-user-otp.sh` | 1.0 |
+
+All scripts support `--version` / `-v` and `--help` / `-h` flags.
+
 ---
 
 ## 🔍 `guacamole-reset-user-otp.sh`
