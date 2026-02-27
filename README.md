@@ -6,7 +6,7 @@ A collection of Bash scripts to simplify repetitive sysadmin and infrastructure 
 
 | Script | Version |
 |---|---|
-| `nic-xray.sh` | 1.5 |
+| `nic-xray.sh` | 2.0 |
 | `memory-usage-report-kvm.sh` | 2.4 |
 | `memory-usage-report-esxi.sh` | 1.2 |
 | `memory-usage-report-openstack.sh` | 0.2 |
@@ -108,7 +108,7 @@ Display help:
 - LLDP peer information (switch and port)
 - Optionally: LACP status, VLAN tagging, bond MAC address
 
-Supports multiple output formats: **table** (default, with dynamic column widths), **CSV**, and **JSON**.
+Supports multiple output formats: **table** (default, with dynamic column widths), **CSV**, **JSON**, and **network topology diagrams** (DOT/SVG/PNG).
 
 Originally developed for OpenStack node deployments, it is suitable for any Linux environment.
 
@@ -121,6 +121,8 @@ Originally developed for OpenStack node deployments, it is suitable for any Linu
   - `ethtool`
   - `lldpctl`
   - `ip`, `awk`, `grep`, `cat`, `readlink`
+- Optional tools:
+  - `graphviz` (`dot` command) — required for `--output svg` and `--output png`; not needed for `--output dot`
 - Switch configuration:
   - Switch should advertise LLDP messages
   - Cisco doesn't include VLAN information by default.
@@ -213,6 +215,24 @@ All optional columns with JSON output:
 
 ```bash
 sudo nic-xray.sh --vlan --lacp --bmac --output json
+```
+
+Generate DOT source for external rendering:
+
+```bash
+sudo nic-xray.sh --output dot > topology.dot
+```
+
+Generate an SVG network topology diagram:
+
+```bash
+sudo nic-xray.sh --output svg
+```
+
+Generate a PNG diagram with custom output path:
+
+```bash
+sudo nic-xray.sh --output png --diagram-out /tmp/network.png
 ```
 
 Show all optional columns at once:

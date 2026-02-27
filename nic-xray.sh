@@ -33,10 +33,13 @@
 #                        Auto-disable colors when stdout is not a terminal
 #                        Optimized ethtool calls (single invocation per interface)
 #                        Graceful message when no interfaces are found
+#   - 2026-02-27: v2.0 - Added network topology diagram output (dot/svg/png)
+#                        New --diagram-out flag for custom output file path
+#                        Optional graphviz dependency for svg/png rendering
 #
-# Version: 1.5
+# Version: 2.0
 
-SCRIPT_VERSION="1.5"
+SCRIPT_VERSION="2.0"
 
 # LOCALE setup, we expect output in English for proper parsing
 LANG=en_US.UTF-8
@@ -50,10 +53,11 @@ OUTPUT_FORMAT="table"
 SORT_BY_BOND=false
 USE_COLOR=true
 FILTER_LINK=""
+DIAGRAM_OUTPUT_FILE=""
 
 
 # Parse options using getopt
-OPTIONS=$(getopt -o hvs:: --long help,version,lacp,vlan,bmac,separator::,group-bond,output:,no-color,all,filter-link: -n "$0" -- "$@")
+OPTIONS=$(getopt -o hvs:: --long help,version,lacp,vlan,bmac,separator::,group-bond,output:,no-color,all,filter-link:,diagram-out: -n "$0" -- "$@")
 if [ $? -ne 0 ]; then
 	echo "Failed to parse options." >&2
 	exit 1
@@ -113,13 +117,17 @@ while true; do
 			SORT_BY_BOND=true
 			shift
 			;;
+		--diagram-out)
+			DIAGRAM_OUTPUT_FILE="$2"
+			shift 2
+			;;
 		--output)
 			case "$2" in
-				table|csv|json)
+				table|csv|json|dot|svg|png)
 				OUTPUT_FORMAT="$2"
 				;;
 			*)
-				echo "Invalid output format: $2. Choose from table, csv, or json." >&2
+				echo "Invalid output format: $2. Choose from table, csv, json, dot, svg, or png." >&2
 				exit 1
 				;;
 			esac
@@ -132,7 +140,8 @@ while true; do
 		-h|--help)
 			echo -e "Usage: $0 [--lacp] [--vlan] [--bmac] [--all] [--no-color]"
 			echo -e "       [--filter-link up|down] [-s[SEP]|--separator[=SEP]]"
-			echo -e "       [--group-bond] [--output FORMAT] [--help]"
+			echo -e "       [--group-bond] [--output FORMAT] [--diagram-out FILE]"
+			echo -e "       [--help]"
 			echo -e ""
 			echo -e "Version: $SCRIPT_VERSION"
 			echo -e ""
@@ -152,7 +161,11 @@ while true; do
 			echo -e " -sSEP, --separator=SEP"
 			echo -e "                     Use SEP as column separator in table and CSV output"
 			echo -e " --group-bond        Sort rows by bond group, then by interface name"
-			echo -e " --output TYPE       Output format: table (default), csv, or json"
+			echo -e " --output TYPE       Output format: table (default), csv, json, dot, svg, or png"
+			echo -e "                     dot/svg/png generate a network topology diagram"
+			echo -e "                     svg/png require graphviz (dot command)"
+			echo -e " --diagram-out FILE  Output file path for svg/png diagrams"
+			echo -e "                     Default: /tmp/nic-xray-<hostname>.{svg,png}"
 			echo -e " -v, --version       Display version information"
 			echo -e " -h, --help          Display this help message"
 			exit 0
@@ -171,6 +184,21 @@ done
 
 # --- Auto-disable colors for non-terminal output ---
 [[ ! -t 1 ]] && USE_COLOR=false
+
+# --- Diagram format setup ---
+if [[ "$OUTPUT_FORMAT" =~ ^(dot|svg|png)$ ]]; then
+    # Auto-enable all optional data for diagram completeness
+    SHOW_LACP=true
+    SHOW_VLAN=true
+    SHOW_BMAC=true
+
+    # Check graphviz availability for rendered formats
+    if [[ "$OUTPUT_FORMAT" != "dot" ]] && ! command -v dot &>/dev/null; then
+        echo "graphviz is required for --output $OUTPUT_FORMAT but 'dot' command was not found." >&2
+        echo "Install graphviz or use --output dot to generate raw DOT source." >&2
+        exit 1
+    fi
+fi
 
 # --- Validation Section ---
 if [[ $EUID -ne 0 ]]; then
@@ -494,6 +522,307 @@ else
     done
 fi
 
+# --- DOT Diagram Helpers ---
+
+# Sanitize a string to a valid DOT identifier
+dot_id() {
+    local STR="$1"
+    STR="${STR//[^a-zA-Z0-9_]/_}"
+    printf '%s' "$STR"
+}
+
+# Escape HTML entities for DOT HTML labels
+dot_escape() {
+    local STR="$1"
+    STR="${STR//&/&amp;}"
+    STR="${STR//</&lt;}"
+    STR="${STR//>/&gt;}"
+    STR="${STR//\"/&quot;}"
+    printf '%s' "$STR"
+}
+
+# Map speed (Mb/s) to edge pen width
+dot_penwidth() {
+    local RAW="$1"
+    local NUM="${RAW%%[^0-9]*}"
+    if [[ "$NUM" =~ ^[0-9]+$ ]]; then
+        if (( NUM >= 100000 )); then
+            echo "4.0"
+        elif (( NUM >= 25000 )); then
+            echo "3.0"
+        elif (( NUM >= 10000 )); then
+            echo "2.5"
+        elif (( NUM >= 1000 )); then
+            echo "2.0"
+        else
+            echo "1.5"
+        fi
+    else
+        echo "1.0"
+    fi
+}
+
+# Generate DOT graph source from collected data
+generate_dot() {
+    local HOSTNAME
+    HOSTNAME=$(hostname -f 2>/dev/null || hostname)
+
+    # --- Catppuccin Mocha-inspired dark theme colors ---
+    local BG_COLOR="#1e1e2e"
+    local FG_COLOR="#cdd6f4"
+    local SURFACE_COLOR="#313244"
+    local BORDER_COLOR="#585b70"
+    local GREEN_COLOR="#a6e3a1"
+    local RED_COLOR="#f38ba8"
+    local BLUE_COLOR="#89b4fa"
+    local PEACH_COLOR="#fab387"
+    local MAUVE_COLOR="#cba6f7"
+    local GRAY_COLOR="#6c7086"
+    local TEXT_COLOR="#cdd6f4"
+    local SUBTEXT_COLOR="#a6adc8"
+
+    # Categorize interfaces: bond members vs standalone
+    declare -A BOND_MEMBERS  # bond_name -> space-separated row indices
+    declare -a STANDALONE_INDICES
+    declare -A SEEN_SWITCHES  # switch_name -> 1
+
+    for ((i = 0; i < ROW_COUNT; i++)); do
+        local BOND="${DATA_BOND_PLAIN[$i]}"
+        if [[ "$BOND" != "None" ]]; then
+            BOND_MEMBERS["$BOND"]+="$i "
+        else
+            STANDALONE_INDICES+=("$i")
+        fi
+
+        local SW="${DATA_SWITCH[$i]}"
+        if [[ -n "$SW" ]]; then
+            SEEN_SWITCHES["$SW"]=1
+        fi
+    done
+
+    # --- Emit DOT source ---
+    cat <<DOTHEADER
+digraph nic_xray {
+    rankdir=LR;
+    bgcolor="$BG_COLOR";
+    fontname="Helvetica,Arial,sans-serif";
+    fontcolor="$FG_COLOR";
+    pad="0.5";
+    nodesep="0.6";
+    ranksep="1.5";
+    node [fontname="Helvetica,Arial,sans-serif", fontcolor="$TEXT_COLOR", fontsize=11];
+    edge [fontname="Helvetica,Arial,sans-serif", fontcolor="$SUBTEXT_COLOR", fontsize=10];
+
+DOTHEADER
+
+    # --- Server node ---
+    printf '    server [shape=plain, label=<\n'
+    printf '        <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="4" CELLPADDING="6" '
+    printf 'BGCOLOR="%s" COLOR="%s">\n' "$SURFACE_COLOR" "$BORDER_COLOR"
+    printf '        <TR><TD COLSPAN="2"><FONT POINT-SIZE="14" COLOR="%s"><B>%s</B></FONT></TD></TR>\n' \
+        "$MAUVE_COLOR" "$(dot_escape "$HOSTNAME")"
+    printf '        <TR><TD COLSPAN="2"><FONT COLOR="%s">Server</FONT></TD></TR>\n' "$SUBTEXT_COLOR"
+    printf '        </TABLE>\n'
+    printf '    >];\n\n'
+
+    # --- Bond clusters with member interface nodes ---
+    local CLUSTER_IDX=0
+    for BOND_NAME in $(printf '%s\n' "${!BOND_MEMBERS[@]}" | sort); do
+        local MEMBERS="${BOND_MEMBERS[$BOND_NAME]}"
+
+        # Determine LACP status label for the bond
+        local LACP_LABEL=""
+        for IDX in $MEMBERS; do
+            local LACP="${DATA_LACP_PLAIN[$IDX]}"
+            if [[ "$LACP" == AggID* && "$LACP" != *"Partial"* ]]; then
+                LACP_LABEL="LACP Active"
+                break
+            elif [[ "$LACP" == *"Partial"* ]]; then
+                LACP_LABEL="LACP Partial"
+            elif [[ "$LACP" == "Pending" && -z "$LACP_LABEL" ]]; then
+                LACP_LABEL="LACP Pending"
+            fi
+        done
+        [[ -z "$LACP_LABEL" ]] && LACP_LABEL="Bonded"
+
+        printf '    subgraph cluster_bond_%d {\n' "$CLUSTER_IDX"
+        printf '        style=dashed;\n'
+        printf '        color="%s";\n' "$BLUE_COLOR"
+        printf '        bgcolor="%s";\n' "${BG_COLOR}cc"
+        printf '        fontcolor="%s";\n' "$BLUE_COLOR"
+        printf '        label=<<FONT POINT-SIZE="12"><B>%s</B> (%s)</FONT>>;\n' \
+            "$(dot_escape "$BOND_NAME")" "$(dot_escape "$LACP_LABEL")"
+        printf '        penwidth=1.5;\n\n'
+
+        for IDX in $MEMBERS; do
+            local IFACE="${DATA_IFACE[$IDX]}"
+            local DRIVER="${DATA_DRIVER[$IDX]}"
+            local LINK="${DATA_LINK_PLAIN[$IDX]}"
+            local NODE_ID
+            NODE_ID=$(dot_id "$IFACE")
+
+            local NODE_BORDER
+            if [[ "$LINK" == "up" ]]; then
+                NODE_BORDER="$GREEN_COLOR"
+            else
+                NODE_BORDER="$RED_COLOR"
+            fi
+
+            printf '        %s [shape=plain, label=<\n' "$NODE_ID"
+            printf '            <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="2" CELLPADDING="4" '
+            printf 'BGCOLOR="%s" COLOR="%s">\n' "$SURFACE_COLOR" "$NODE_BORDER"
+            printf '            <TR><TD><FONT COLOR="%s"><B>%s</B></FONT></TD></TR>\n' \
+                "$TEXT_COLOR" "$(dot_escape "$IFACE")"
+            printf '            <TR><TD><FONT POINT-SIZE="9" COLOR="%s">%s | %s</FONT></TD></TR>\n' \
+                "$SUBTEXT_COLOR" "$(dot_escape "$DRIVER")" "$(dot_escape "${LINK^^}")"
+            printf '            </TABLE>\n'
+            printf '        >];\n'
+        done
+
+        printf '    }\n\n'
+        ((CLUSTER_IDX++))
+    done
+
+    # --- Standalone interface nodes ---
+    for IDX in "${STANDALONE_INDICES[@]}"; do
+        local IFACE="${DATA_IFACE[$IDX]}"
+        local DRIVER="${DATA_DRIVER[$IDX]}"
+        local LINK="${DATA_LINK_PLAIN[$IDX]}"
+        local NODE_ID
+        NODE_ID=$(dot_id "$IFACE")
+
+        local NODE_BORDER
+        if [[ "$LINK" == "up" ]]; then
+            NODE_BORDER="$GREEN_COLOR"
+        else
+            NODE_BORDER="$RED_COLOR"
+        fi
+
+        printf '    %s [shape=plain, label=<\n' "$NODE_ID"
+        printf '        <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="2" CELLPADDING="4" '
+        printf 'BGCOLOR="%s" COLOR="%s">\n' "$SURFACE_COLOR" "$NODE_BORDER"
+        printf '        <TR><TD><FONT COLOR="%s"><B>%s</B></FONT></TD></TR>\n' \
+            "$TEXT_COLOR" "$(dot_escape "$IFACE")"
+        printf '        <TR><TD><FONT POINT-SIZE="9" COLOR="%s">%s | %s</FONT></TD></TR>\n' \
+            "$SUBTEXT_COLOR" "$(dot_escape "$DRIVER")" "$(dot_escape "${LINK^^}")"
+        printf '        </TABLE>\n'
+        printf '    >];\n\n'
+    done
+
+    # --- Switch nodes ---
+    for SW_NAME in $(printf '%s\n' "${!SEEN_SWITCHES[@]}" | sort); do
+        local SW_ID
+        SW_ID=$(dot_id "sw_${SW_NAME}")
+        printf '    %s [shape=plain, label=<\n' "$SW_ID"
+        printf '        <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="2" CELLPADDING="6" '
+        printf 'BGCOLOR="%s" COLOR="%s" STYLE="ROUNDED">\n' "$SURFACE_COLOR" "$PEACH_COLOR"
+        printf '        <TR><TD><FONT POINT-SIZE="13" COLOR="%s"><B>%s</B></FONT></TD></TR>\n' \
+            "$PEACH_COLOR" "$(dot_escape "$SW_NAME")"
+        printf '        <TR><TD><FONT COLOR="%s">Switch</FONT></TD></TR>\n' "$SUBTEXT_COLOR"
+        printf '        </TABLE>\n'
+        printf '    >];\n\n'
+    done
+
+    # --- "No LLDP peer" stub node ---
+    local HAS_DISCONNECTED=false
+    for ((i = 0; i < ROW_COUNT; i++)); do
+        if [[ -z "${DATA_SWITCH[$i]}" ]]; then
+            HAS_DISCONNECTED=true
+            break
+        fi
+    done
+
+    if [[ "$HAS_DISCONNECTED" == true ]]; then
+        printf '    no_lldp_peer [shape=plain, label=<\n'
+        printf '        <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="2" CELLPADDING="4" '
+        printf 'BGCOLOR="%s" COLOR="%s" STYLE="ROUNDED">\n' "$SURFACE_COLOR" "$GRAY_COLOR"
+        printf '        <TR><TD><FONT COLOR="%s"><I>No LLDP peer</I></FONT></TD></TR>\n' "$GRAY_COLOR"
+        printf '        </TABLE>\n'
+        printf '    >];\n\n'
+    fi
+
+    # --- Edges: server -> interfaces ---
+    for ((i = 0; i < ROW_COUNT; i++)); do
+        local IFACE="${DATA_IFACE[$i]}"
+        local NODE_ID
+        NODE_ID=$(dot_id "$IFACE")
+        printf '    server -> %s [style=invis, weight=10];\n' "$NODE_ID"
+    done
+    printf '\n'
+
+    # --- Edges: interfaces -> switches/stubs ---
+    for ((i = 0; i < ROW_COUNT; i++)); do
+        local IFACE="${DATA_IFACE[$i]}"
+        local NODE_ID
+        NODE_ID=$(dot_id "$IFACE")
+        local SW="${DATA_SWITCH[$i]}"
+        local PORT="${DATA_PORT[$i]}"
+        local SPEED_RAW="${DATA_SPEED_PLAIN[$i]}"
+        local LINK="${DATA_LINK_PLAIN[$i]}"
+        local VLAN="${DATA_VLAN[$i]}"
+
+        # Build edge label
+        local LABEL_PARTS=()
+        [[ -n "$PORT" ]] && LABEL_PARTS+=("$(dot_escape "$PORT")")
+
+        local SPEED_NUM="${SPEED_RAW%%[^0-9]*}"
+        if [[ "$SPEED_NUM" =~ ^[0-9]+$ ]]; then
+            LABEL_PARTS+=("$(dot_escape "$SPEED_RAW")")
+        fi
+
+        if [[ -n "$VLAN" && "$VLAN" != "N/A" ]]; then
+            LABEL_PARTS+=("VLAN $(dot_escape "$VLAN")")
+        fi
+
+        local EDGE_LABEL=""
+        if [[ ${#LABEL_PARTS[@]} -gt 0 ]]; then
+            EDGE_LABEL=$(printf '%s\n' "${LABEL_PARTS[@]}" | paste -sd '\n' -)
+        fi
+
+        local PW
+        PW=$(dot_penwidth "$SPEED_RAW")
+
+        if [[ -n "$SW" ]]; then
+            local SW_ID
+            SW_ID=$(dot_id "sw_${SW}")
+            local EDGE_COLOR
+            if [[ "$LINK" == "up" ]]; then
+                EDGE_COLOR="$GREEN_COLOR"
+            else
+                EDGE_COLOR="$RED_COLOR"
+            fi
+            printf '    %s -> %s [label=<%s>, penwidth=%s, color="%s", fontcolor="%s"];\n' \
+                "$NODE_ID" "$SW_ID" \
+                "$(printf '%s' "$EDGE_LABEL" | sed 's/\\n/<BR\/>/g')" \
+                "$PW" "$EDGE_COLOR" "$SUBTEXT_COLOR"
+        else
+            printf '    %s -> no_lldp_peer [style=dashed, color="%s", fontcolor="%s", penwidth=1.0];\n' \
+                "$NODE_ID" "$GRAY_COLOR" "$GRAY_COLOR"
+        fi
+    done
+
+    # --- Rank constraints ---
+    printf '\n    { rank=min; server; }\n'
+
+    # Switch nodes on the right
+    local SW_NAMES
+    SW_NAMES=$(printf '%s\n' "${!SEEN_SWITCHES[@]}" | sort)
+    if [[ -n "$SW_NAMES" ]]; then
+        printf '    { rank=max;'
+        while IFS= read -r SW_NAME; do
+            printf ' %s;' "$(dot_id "sw_${SW_NAME}")"
+        done <<< "$SW_NAMES"
+        if [[ "$HAS_DISCONNECTED" == true ]]; then
+            printf ' no_lldp_peer;'
+        fi
+        printf ' }\n'
+    elif [[ "$HAS_DISCONNECTED" == true ]]; then
+        printf '    { rank=max; no_lldp_peer; }\n'
+    fi
+
+    printf '}\n'
+}
+
 # --- Output ---
 if [[ "${OUTPUT_FORMAT}" == "table" ]]; then
     # Header
@@ -579,4 +908,17 @@ elif [[ "${OUTPUT_FORMAT}" == "json" ]]; then
         printf '\n'
     done
     printf ']\n'
+elif [[ "$OUTPUT_FORMAT" == "dot" ]]; then
+    generate_dot
+elif [[ "$OUTPUT_FORMAT" == "svg" || "$OUTPUT_FORMAT" == "png" ]]; then
+    if [[ -z "$DIAGRAM_OUTPUT_FILE" ]]; then
+        DIAGRAM_OUTPUT_FILE="/tmp/nic-xray-$(hostname -s 2>/dev/null || hostname).${OUTPUT_FORMAT}"
+    fi
+
+    if generate_dot | dot -T"$OUTPUT_FORMAT" -o "$DIAGRAM_OUTPUT_FILE" 2>/dev/null; then
+        echo "Diagram saved to: $DIAGRAM_OUTPUT_FILE" >&2
+    else
+        echo "Failed to render diagram. Check that graphviz is working correctly." >&2
+        exit 1
+    fi
 fi
