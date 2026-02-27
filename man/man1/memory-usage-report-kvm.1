@@ -1,0 +1,175 @@
+.\" Man page for memory-usage-report-kvm.sh
+.\" Written in classic troff/groff format
+.TH MEMORY-USAGE-REPORT-KVM 1 "2026-02-27" "memory-usage-report-kvm 2.4" "User Commands"
+.SH NAME
+memory-usage-report-kvm \- comprehensive KVM host memory usage and optimization summary
+.SH SYNOPSIS
+.B memory-usage-report-kvm.sh
+.RB [ \-h | \-\-help ]
+.RB [ \-v | \-\-version ]
+.RB [ \-\-output
+.IR FORMAT ]
+.SH DESCRIPTION
+.B memory-usage-report-kvm.sh
+provides a detailed memory usage and optimization report for KVM
+hypervisor hosts. It collects data from the host and all running virtual
+machines to produce a unified summary.
+.PP
+The report includes:
+.IP \(bu 3
+Host total, available, and used memory
+.IP \(bu
+Per-VM memory allocation (maximum, current, guest used, guest free)
+.IP \(bu
+Per-VM guest swap activity (swap in and swap out)
+.IP \(bu
+KSM (Kernel Same-page Merging) savings
+.IP \(bu
+Host-level configuration (hugepages, overcommit settings)
+.IP \(bu
+Optional baseline comparison for tracking memory changes over time
+.PP
+Supports
+.BR table " (default),"
+.BR csv ", and"
+.B json
+output formats.
+.SH OPTIONS
+.TP
+.BI \-\-output " FORMAT"
+Set the output format.
+.I FORMAT
+must be one of:
+.RS
+.TP
+.B table
+Default. Human-readable report with headers, separators, and all sections
+(host summary, VM details, KSM, host configuration, baseline comparison).
+.TP
+.B csv
+VM table only. Comma-separated values with columns: VM Name, Max Alloc
+(MiB), Current Alloc (MiB), Guest Used (MiB), Guest Free (MiB), Swap In
+(MiB), Swap Out (MiB).
+.TP
+.B json
+Full structured report as a single JSON object containing:
+.BR host_summary ", " vms " (array), " ksm ", and " host_config .
+.RE
+.TP
+.BR \-v ", " \-\-version
+Display version information and exit.
+.TP
+.BR \-h ", " \-\-help
+Display usage information and exit.
+.SH OUTPUT SECTIONS
+.SS Host & VM Memory Summary
+Displays aggregate memory figures:
+.TP
+.B Host Total Memory
+Total physical memory on the host in MiB.
+.TP
+.B Total VM Max Allocation
+Sum of maximum memory configured for all running VMs in MiB.
+.TP
+.B Total VM Current Allocation
+Sum of memory currently allocated to all running VMs in MiB.
+.TP
+.B Host Available Memory
+Memory available on the host in MiB.
+.SS VM Memory & Swap Details
+Per-VM table with the following columns:
+.TP
+.B VM Name
+Name of the virtual machine as reported by
+.BR virsh (1).
+.TP
+.B Max Alloc (MiB)
+Maximum memory allocation configured for the VM.
+.TP
+.B Current Alloc (MiB)
+Memory currently allocated to the VM.
+.TP
+.B Guest Used (MiB)
+Memory actively used inside the guest OS.
+.TP
+.B Guest Free (MiB)
+Free memory reported by the guest OS.
+.TP
+.B Swap In (MiB)
+Cumulative swap-in activity inside the guest.
+.TP
+.B Swap Out (MiB)
+Cumulative swap-out activity inside the guest.
+.SS KSM Memory Savings
+Reports Kernel Same-page Merging status: active or inactive, pages saved,
+and estimated memory savings in MiB.
+.SS Host Configuration
+Displays host memory and swap usage (via
+.BR free (1)),
+hugepages allocation from
+.IR /proc/meminfo ,
+and kernel overcommit settings
+.RB ( vm.overcommit_memory " and " vm.overcommit_ratio ).
+.SS Baseline Comparison
+If a baseline file exists at
+.IR /var/log/mem_baseline.txt ,
+the current host memory is compared against the recorded baseline. If no
+baseline exists, instructions to create one are shown.
+.SH REQUIREMENTS
+.B memory-usage-report-kvm.sh
+must be run as
+.BR root .
+.PP
+The following commands must be available in
+.BR PATH :
+.PP
+.RS
+.BR virsh (1),
+.BR bc (1),
+.BR getconf (1),
+.BR free (1),
+.BR sysctl (8),
+.BR awk (1),
+.BR grep (1)
+.RE
+.PP
+The host must have libvirt installed with running virtual machines for
+meaningful output.
+.SH EXIT STATUS
+.TP
+.B 0
+Successful execution.
+.TP
+.B 1
+Error: not running as root, missing required commands, or invalid options.
+.SH EXAMPLES
+Run the default table report:
+.PP
+.RS
+.B sudo memory-usage-report-kvm.sh
+.RE
+.PP
+CSV output (VM table only):
+.PP
+.RS
+.B sudo memory-usage-report-kvm.sh \-\-output csv
+.RE
+.PP
+JSON output (full report):
+.PP
+.RS
+.B sudo memory-usage-report-kvm.sh \-\-output json
+.RE
+.PP
+Create a memory baseline for future comparisons:
+.PP
+.RS
+.B (echo "# Recorded on: $(date)"; free \-m) > /var/log/mem_baseline.txt
+.RE
+.SH AUTHORS
+Ciro Iriarte <ciro.iriarte@millicom.com>
+.SH SEE ALSO
+.BR virsh (1),
+.BR free (1),
+.BR sysctl (8),
+.BR proc (5)

@@ -9,3 +9,5 @@ install-man:
 
 uninstall-man:
 	rm -f $(DESTDIR)$(MANDIR)/man1/nic-xray.1
+	rm -f $(DESTDIR)$(MANDIR)/man1/memory-usage-report-kvm.1
+	rm -f $(DESTDIR)$(MANDIR)/man1/memory-usage-report-openstack.1
