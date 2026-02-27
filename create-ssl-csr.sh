@@ -3,7 +3,7 @@
 # Script Name: create-csr.sh
 # Description: This script builds a CSR file to be sent to a CA.
 #
-# Author: Ciro Iriarte <ciro.iriarte@millicom.com>
+# Author: Ciro Iriarte <ciro.iriarte+software@gmail.com>
 # Created: 2025-06-06
 #
 # Requirements:

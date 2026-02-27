@@ -3,7 +3,7 @@
 # Script Name: memory-usage-report-kvm.sh
 # Description: Provides a comprehensive KVM host memory usage and optimization summary.
 #
-# Author: Ciro Iriarte <ciro.iriarte@millicom.com>
+# Author: Ciro Iriarte <ciro.iriarte+software@gmail.com>
 # Created: 2025-09-11
 # Version: 2.4
 #

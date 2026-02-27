@@ -8,7 +8,7 @@
 #              Created initially to deploy Openstack nodes, but should work
 #              with any Linux machine.
 #
-# Author: Ciro Iriarte <ciro.iriarte@millicom.com>
+# Author: Ciro Iriarte <ciro.iriarte+software@gmail.com>
 # Created: 2025-06-05
 #
 # Requirements:

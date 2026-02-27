@@ -3,7 +3,7 @@
 # Script Name: memory-usage-report-esxi.sh
 # Description: Provides a basic ESXi host memory usage and optimization summary.
 #
-# Author: Ciro Iriarte <ciro.iriarte@millicom.com>
+# Author: Ciro Iriarte <ciro.iriarte+software@gmail.com>
 # Created: 2025-09-11
 # Version: 1.2
 #

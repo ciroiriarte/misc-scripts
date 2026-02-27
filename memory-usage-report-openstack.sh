@@ -4,7 +4,7 @@
 # Description: Accurate summary of OpenStack resources per domain with per-project
 #              breakdown: instances, vCPUs, RAM, and volumes.
 #
-# Author: Ciro Iriarte <ciro.iriarte@millicom.com>
+# Author: Ciro Iriarte <ciro.iriarte+software@gmail.com>
 # Created: 2025-12-24
 # Version: 0.2
 #
