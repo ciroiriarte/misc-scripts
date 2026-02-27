@@ -20,7 +20,7 @@
 #   - 2026-02-17: v2.4 - Added --output option for CSV and JSON formats.
 
 # --- Configuration ---
-SCRIPT_VERSION="2.4"
+VERSION="2.4"
 BASELINE_FILE="/var/log/mem_baseline.txt"
 OUTPUT_FORMAT="table"
 
@@ -29,7 +29,7 @@ OUTPUT_FORMAT="table"
 show_help() {
     echo "Usage: $0 [-h|--help] [-v|--version] [--output FORMAT]"
     echo ""
-    echo "Version: $SCRIPT_VERSION"
+    echo "Version: $VERSION"
     echo ""
     echo "Description:"
     echo " Provides a comprehensive KVM host memory usage and optimization summary."
@@ -77,7 +77,7 @@ eval set -- "$OPTIONS"
 while true; do
     case "$1" in
         -v|--version)
-            echo "$0 $SCRIPT_VERSION"
+            echo "$0 $VERSION"
             exit 0
             ;;
         -h|--help)

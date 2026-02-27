@@ -12,14 +12,14 @@
 #
 # Version: 1.0
 
-SCRIPT_VERSION="1.0"
+VERSION="1.0"
 
 # === Functions ===
 
 show_help() {
     echo "Usage: $0 [-h|--help] [-v|--version] <username>"
     echo ""
-    echo "Version: $SCRIPT_VERSION"
+    echo "Version: $VERSION"
     echo ""
     echo "Description:"
     echo " Resets the TOTP (OTP) enrollment for a Guacamole user."
@@ -50,7 +50,7 @@ DBCMD="mysql"
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -v|--version)
-            echo "$0 $SCRIPT_VERSION"
+            echo "$0 $VERSION"
             exit 0
             ;;
         -h|--help)
