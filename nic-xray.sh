@@ -27,10 +27,11 @@
 #   - 2026-02-17: Speed column coloring for table output
 #                 --separator redesigned as optional-value flag (applies to CSV too)
 #                 Added --group-bond flag for bond-grouped output
+#   - 2026-02-27: v1.4 - Fixed --separator shift bug when used without a value
 #
-# Version: 1.3
+# Version: 1.4
 
-SCRIPT_VERSION="1.3"
+SCRIPT_VERSION="1.4"
 
 # LOCALE setup, we expect output in English for proper parsing
 LANG=en_US.UTF-8
@@ -76,7 +77,7 @@ while true; do
 				shift 2
 			else
 				FIELD_SEP="│"
-				shift
+				shift 2
 			fi
 			;;
 		--group-bond)

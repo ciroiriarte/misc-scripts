@@ -6,7 +6,7 @@ A collection of Bash scripts to simplify repetitive sysadmin and infrastructure 
 
 | Script | Version |
 |---|---|
-| `nic-xray.sh` | 1.3 |
+| `nic-xray.sh` | 1.4 |
 | `memory-usage-report-kvm.sh` | 2.4 |
 | `memory-usage-report-esxi.sh` | 1.2 |
 | `memory-usage-report-openstack.sh` | 0.2 |
