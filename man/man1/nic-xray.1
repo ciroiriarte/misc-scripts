@@ -1,6 +1,6 @@
 .\" Man page for nic-xray.sh
 .\" Written in classic troff/groff format
-.TH NIC-XRAY 1 "2026-02-27" "nic-xray 1.4" "User Commands"
+.TH NIC-XRAY 1 "2026-02-27" "nic-xray 1.5" "User Commands"
 .SH NAME
 nic-xray \- detailed physical network interface diagnostics
 .SH SYNOPSIS
@@ -8,6 +8,10 @@ nic-xray \- detailed physical network interface diagnostics
 .RI [ \-\-lacp ]
 .RI [ \-\-vlan ]
 .RI [ \-\-bmac ]
+.RI [ \-\-all ]
+.RI [ \-\-no\-color ]
+.RI [ \-\-filter\-link
+.IR up | down ]
 .RI [ \-s [ SEP ]| \-\-separator [= SEP ]]
 .RI [ \-\-group\-bond ]
 .RI [ \-\-output
@@ -17,9 +21,9 @@ nic-xray \- detailed physical network interface diagnostics
 .SH DESCRIPTION
 .B nic-xray.sh
 provides a detailed overview of all physical network interfaces on a Linux
-system. It collects and displays PCI slot, firmware version, interface name,
-MAC address, MTU, link status, negotiated speed and duplex, bond membership,
-and LLDP peer information (switch name and port).
+system. It collects and displays PCI slot, driver name, firmware version,
+interface name, MAC address, MTU, link status, negotiated speed and duplex,
+bond membership, and LLDP peer information (switch name and port).
 .PP
 Color coding is used in table output to highlight link status, speed tiers,
 bond groupings, and LACP status, making it easy to spot issues at a glance.
@@ -42,6 +46,26 @@ Show the bridge (bond) MAC address column. Displays the system MAC address
 reported by the bonding driver, or
 .B N/A
 for unbonded interfaces.
+.TP
+.B \-\-all
+Enable all optional columns. Equivalent to specifying
+.BR \-\-lacp ,
+.BR \-\-vlan ,
+and
+.B \-\-bmac
+together.
+.TP
+.B \-\-no\-color
+Disable color output. Colors are also automatically disabled when standard
+output is not a terminal (e.g., when piping to a file or another command).
+.TP
+.BI \-\-filter\-link " TYPE"
+Show only interfaces whose link state matches
+.IR TYPE .
+Valid values are
+.B up
+and
+.BR down .
 .TP
 .BR \-s ", " \-\-separator
 Add column separators to table output using the default separator
@@ -87,6 +111,12 @@ The following columns are always displayed:
 .B Device
 PCI slot identifier (e.g.,
 .IR 0000:3b:00.0 ).
+.TP
+.B Driver
+Kernel driver name for the network adapter as reported by
+.BR ethtool (8)
+(e.g.,
+.IR mlx5_core ", " ixgbe ).
 .TP
 .B Firmware
 Network adapter firmware version as reported by
@@ -249,10 +279,28 @@ Show VLAN and LACP information with column separators:
 .B sudo nic-xray.sh \-\-vlan \-\-lacp \-s
 .RE
 .PP
+Show all optional columns at once:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-all
+.RE
+.PP
 Group by bond and show all optional columns:
 .PP
 .RS
-.B sudo nic-xray.sh \-\-group\-bond \-\-lacp \-\-bmac \-\-vlan
+.B sudo nic-xray.sh \-\-group\-bond \-\-all
+.RE
+.PP
+Show only interfaces with link up:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-filter\-link up
+.RE
+.PP
+Disable color output:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-no\-color
 .RE
 .PP
 CSV output with pipe delimiter:

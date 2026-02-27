@@ -6,7 +6,7 @@ A collection of Bash scripts to simplify repetitive sysadmin and infrastructure 
 
 | Script | Version |
 |---|---|
-| `nic-xray.sh` | 1.4 |
+| `nic-xray.sh` | 1.5 |
 | `memory-usage-report-kvm.sh` | 2.4 |
 | `memory-usage-report-esxi.sh` | 1.2 |
 | `memory-usage-report-openstack.sh` | 0.2 |
@@ -97,6 +97,7 @@ Display help:
 `nic-xray.sh` is a diagnostic script that provides a detailed overview of all **physical network interfaces** on a Linux system. It displays:
 
 - PCI slot
+- Driver name
 - Firmware version
 - Interface name
 - MAC address
@@ -214,11 +215,35 @@ All optional columns with JSON output:
 sudo nic-xray.sh --vlan --lacp --bmac --output json
 ```
 
+Show all optional columns at once:
+
+```bash
+sudo nic-xray.sh --all
+```
+
 Group rows by bond (bonded interfaces first, then unbonded):
 
 ```bash
 sudo nic-xray.sh --group-bond
-sudo nic-xray.sh --group-bond --lacp -s
+sudo nic-xray.sh --group-bond --all -s
+```
+
+Show only interfaces with link up:
+
+```bash
+sudo nic-xray.sh --filter-link up
+```
+
+Show only interfaces with link down:
+
+```bash
+sudo nic-xray.sh --filter-link down
+```
+
+Disable color output:
+
+```bash
+sudo nic-xray.sh --no-color
 ```
 
 Display version:

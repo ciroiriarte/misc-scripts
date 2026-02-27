@@ -28,10 +28,15 @@
 #                 --separator redesigned as optional-value flag (applies to CSV too)
 #                 Added --group-bond flag for bond-grouped output
 #   - 2026-02-27: v1.4 - Fixed --separator shift bug when used without a value
+#   - 2026-02-27: v1.5 - Added --no-color, --all, --filter-link flags
+#                        Added Driver column from ethtool -i
+#                        Auto-disable colors when stdout is not a terminal
+#                        Optimized ethtool calls (single invocation per interface)
+#                        Graceful message when no interfaces are found
 #
-# Version: 1.4
+# Version: 1.5
 
-SCRIPT_VERSION="1.4"
+SCRIPT_VERSION="1.5"
 
 # LOCALE setup, we expect output in English for proper parsing
 LANG=en_US.UTF-8
@@ -43,10 +48,12 @@ SHOW_BMAC=false
 FIELD_SEP=""
 OUTPUT_FORMAT="table"
 SORT_BY_BOND=false
+USE_COLOR=true
+FILTER_LINK=""
 
 
 # Parse options using getopt
-OPTIONS=$(getopt -o hvs:: --long help,version,lacp,vlan,bmac,separator::,group-bond,output: -n "$0" -- "$@")
+OPTIONS=$(getopt -o hvs:: --long help,version,lacp,vlan,bmac,separator::,group-bond,output:,no-color,all,filter-link: -n "$0" -- "$@")
 if [ $? -ne 0 ]; then
 	echo "Failed to parse options." >&2
 	exit 1
@@ -80,6 +87,28 @@ while true; do
 				shift 2
 			fi
 			;;
+		--no-color)
+			USE_COLOR=false
+			shift
+			;;
+		--all)
+			SHOW_LACP=true
+			SHOW_VLAN=true
+			SHOW_BMAC=true
+			shift
+			;;
+		--filter-link)
+			case "$2" in
+				up|down)
+					FILTER_LINK="$2"
+					;;
+				*)
+					echo "Invalid filter-link value: $2. Choose 'up' or 'down'." >&2
+					exit 1
+					;;
+			esac
+			shift 2
+			;;
 		--group-bond)
 			SORT_BY_BOND=true
 			shift
@@ -101,19 +130,24 @@ while true; do
 			exit 0
 			;;
 		-h|--help)
-			echo -e "Usage: $0 [--lacp] [--vlan] [--bmac] [-s[SEP]|--separator[=SEP]] [--group-bond] [--output FORMAT] [--help]"
+			echo -e "Usage: $0 [--lacp] [--vlan] [--bmac] [--all] [--no-color]"
+			echo -e "       [--filter-link up|down] [-s[SEP]|--separator[=SEP]]"
+			echo -e "       [--group-bond] [--output FORMAT] [--help]"
 			echo -e ""
 			echo -e "Version: $SCRIPT_VERSION"
 			echo -e ""
 			echo -e "Description:"
 			echo -e " Lists physical network interfaces with detailed information including:"
-			echo -e " PCI slot, firmware, MAC, MTU, link, speed/duplex, bond membership,"
+			echo -e " PCI slot, driver, firmware, MAC, MTU, link, speed/duplex, bond membership,"
 			echo -e " LLDP peer info, and optionally LACP status and VLAN tagging (via LLDP)."
 			echo -e ""
 			echo -e "Options:"
 			echo -e " --lacp              Show LACP Aggregator ID and Partner MAC per interface"
 			echo -e " --vlan              Show VLAN tagging information (from LLDP)"
 			echo -e " --bmac              Show bridge MAC address"
+			echo -e " --all               Enable all optional columns (--lacp --vlan --bmac)"
+			echo -e " --no-color          Disable color output (auto-disabled for non-terminal)"
+			echo -e " --filter-link TYPE  Show only interfaces with link up or down"
 			echo -e " -s, --separator     Show │ column separators in table output; applies to CSV too"
 			echo -e " -sSEP, --separator=SEP"
 			echo -e "                     Use SEP as column separator in table and CSV output"
@@ -135,6 +169,8 @@ while true; do
 done
 
 
+# --- Auto-disable colors for non-terminal output ---
+[[ ! -t 1 ]] && USE_COLOR=false
 
 # --- Validation Section ---
 if [[ $EUID -ne 0 ]]; then
@@ -154,23 +190,36 @@ done
 # --- Color Setup ---
 declare -A BOND_COLORS
 
-COLOR_CODES=(
-    "\033[1;34m"  # Blue
-    "\033[1;36m"  # Cyan
-    "\033[1;33m"  # Yellow
-    "\033[1;35m"  # Magenta
-    "\033[1;37m"  # White
-)
-RESET_COLOR="\033[0m"
-COLOR_INDEX=0
+if [[ "$USE_COLOR" == true ]]; then
+    COLOR_CODES=(
+        "\033[1;34m"  # Blue
+        "\033[1;36m"  # Cyan
+        "\033[1;33m"  # Yellow
+        "\033[1;35m"  # Magenta
+        "\033[1;37m"  # White
+    )
+    RESET_COLOR="\033[0m"
 
-GREEN="\033[1;32m"
-RED="\033[1;31m"
-YELLOW="\033[1;33m"
-BOLD_GREEN="\033[1;32m"
-BOLD_CYAN="\033[1;36m"
-BOLD_MAGENTA="\033[1;35m"
-BOLD_WHITE="\033[1;37m"
+    GREEN="\033[1;32m"
+    RED="\033[1;31m"
+    YELLOW="\033[1;33m"
+    BOLD_GREEN="\033[1;32m"
+    BOLD_CYAN="\033[1;36m"
+    BOLD_MAGENTA="\033[1;35m"
+    BOLD_WHITE="\033[1;37m"
+else
+    COLOR_CODES=("" "" "" "" "")
+    RESET_COLOR=""
+
+    GREEN=""
+    RED=""
+    YELLOW=""
+    BOLD_GREEN=""
+    BOLD_CYAN=""
+    BOLD_MAGENTA=""
+    BOLD_WHITE=""
+fi
+COLOR_INDEX=0
 
 strip_ansi() {
     echo -e "$1" | sed -r 's/\x1B\[[0-9;]*[mK]//g'
@@ -206,6 +255,12 @@ max_width() {
 # --- Helper: apply ANSI color to speed/duplex string based on speed tier ---
 colorize_speed() {
     local RAW="$1"
+
+    if [[ "$USE_COLOR" != true ]]; then
+        printf "%s" "$RAW"
+        return
+    fi
+
     local NUM="${RAW%%[^0-9]*}"
     local COLOR
 
@@ -231,7 +286,7 @@ colorize_speed() {
 }
 
 # --- Data Collection Arrays ---
-declare -a DATA_DEVICE DATA_FIRMWARE DATA_IFACE DATA_MAC DATA_MTU
+declare -a DATA_DEVICE DATA_DRIVER DATA_FIRMWARE DATA_IFACE DATA_MAC DATA_MTU
 declare -a DATA_LINK_PLAIN DATA_LINK_COLOR
 declare -a DATA_SPEED_PLAIN DATA_SPEED_COLOR
 declare -a DATA_BOND_PLAIN DATA_BOND_COLOR
@@ -248,7 +303,9 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
     [[ ! -e "$DEVICE_PATH" ]] && continue
 
     DEVICE=$(basename "$(readlink -f "$DEVICE_PATH")")
-    FIRMWARE=$(ethtool -i "$IFACE" 2>/dev/null | awk -F': ' '/firmware-version/ {print $2}')
+    ETHTOOL_I=$(ethtool -i "$IFACE" 2>/dev/null)
+    FIRMWARE=$(echo "$ETHTOOL_I" | awk -F': ' '/firmware-version/ {print $2}')
+    DRIVER=$(echo "$ETHTOOL_I" | awk -F': ' '/^driver:/ {print $2}')
     MTU=$(cat /sys/class/net/$IFACE/mtu 2>/dev/null)
 
     LINK_RAW=$(cat /sys/class/net/$IFACE/operstate 2>/dev/null)
@@ -260,8 +317,14 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
         LINK_COLOR="${RED}down${RESET_COLOR}"
     fi
 
-    SPEED=$(ethtool "$IFACE" 2>/dev/null | awk -F': ' '/Speed:/ {print $2}' | sed 's/Unknown.*/N\/A/')
-    DUPLEX=$(ethtool "$IFACE" 2>/dev/null | awk -F': ' '/Duplex:/ {print $2}' | sed 's/Unknown.*/N\/A/')
+    # Filter by link state if requested
+    if [[ -n "$FILTER_LINK" && "$LINK_PLAIN" != "$FILTER_LINK" ]]; then
+        continue
+    fi
+
+    ETHTOOL_OUT=$(ethtool "$IFACE" 2>/dev/null)
+    SPEED=$(echo "$ETHTOOL_OUT" | awk -F': ' '/Speed:/ {print $2}' | sed 's/Unknown.*/N\/A/')
+    DUPLEX=$(echo "$ETHTOOL_OUT" | awk -F': ' '/Duplex:/ {print $2}' | sed 's/Unknown.*/N\/A/')
     SPEED_DUPLEX="${SPEED:-N/A} (${DUPLEX:-N/A})"
 
     if [[ -L /sys/class/net/$IFACE/master ]]; then
@@ -341,6 +404,7 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
 
     # Store collected data
     DATA_DEVICE[$ROW_COUNT]="$DEVICE"
+    DATA_DRIVER[$ROW_COUNT]="$DRIVER"
     DATA_FIRMWARE[$ROW_COUNT]="$FIRMWARE"
     DATA_IFACE[$ROW_COUNT]="$IFACE"
     DATA_MAC[$ROW_COUNT]="$MAC"
@@ -360,8 +424,15 @@ for IFACE in $(ls /sys/class/net/ | grep -vE 'lo|vnet|virbr|br|bond|docker|tap|t
     ((ROW_COUNT++))
 done
 
+# --- Guard: no interfaces found ---
+if [[ $ROW_COUNT -eq 0 ]]; then
+    echo "No physical network interfaces found." >&2
+    exit 0
+fi
+
 # --- Compute Dynamic Column Widths ---
 COL_W_DEVICE=$(max_width "Device" "${DATA_DEVICE[@]}")
+COL_W_DRIVER=$(max_width "Driver" "${DATA_DRIVER[@]}")
 COL_W_FIRMWARE=$(max_width "Firmware" "${DATA_FIRMWARE[@]}")
 COL_W_IFACE=$(max_width "Interface" "${DATA_IFACE[@]}")
 COL_W_MAC=$(max_width "MAC Address" "${DATA_MAC[@]}")
@@ -426,14 +497,14 @@ fi
 # --- Output ---
 if [[ "${OUTPUT_FORMAT}" == "table" ]]; then
     # Header
-    printf "%-${COL_W_DEVICE}s${COL_GAP}%-${COL_W_FIRMWARE}s${COL_GAP}%-${COL_W_IFACE}s${COL_GAP}%-${COL_W_MAC}s${COL_GAP}%-${COL_W_MTU}s${COL_GAP}%-${COL_W_LINK}s${COL_GAP}%-${COL_W_SPEED}s${COL_GAP}%-${COL_W_BOND}s" \
-        "Device" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
+    printf "%-${COL_W_DEVICE}s${COL_GAP}%-${COL_W_DRIVER}s${COL_GAP}%-${COL_W_FIRMWARE}s${COL_GAP}%-${COL_W_IFACE}s${COL_GAP}%-${COL_W_MAC}s${COL_GAP}%-${COL_W_MTU}s${COL_GAP}%-${COL_W_LINK}s${COL_GAP}%-${COL_W_SPEED}s${COL_GAP}%-${COL_W_BOND}s" \
+        "Device" "Driver" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
     ${SHOW_BMAC} && printf "${COL_GAP}%-${COL_W_BMAC}s" "Bond MAC"
     ${SHOW_LACP} && printf "${COL_GAP}%-${COL_W_LACP}s" "LACP Status"
     ${SHOW_VLAN} && printf "${COL_GAP}%-${COL_W_VLAN}s" "VLAN"
     printf "${COL_GAP}%-${COL_W_SWITCH}s${COL_GAP}%s\n" "Switch Name" "Port Name"
     # Separator line
-    SEP_WIDTH=$((COL_W_DEVICE + COL_GAP_WIDTH + COL_W_FIRMWARE + COL_GAP_WIDTH + COL_W_IFACE + COL_GAP_WIDTH + COL_W_MAC + COL_GAP_WIDTH + COL_W_MTU + COL_GAP_WIDTH + COL_W_LINK + COL_GAP_WIDTH + COL_W_SPEED + COL_GAP_WIDTH + COL_W_BOND))
+    SEP_WIDTH=$((COL_W_DEVICE + COL_GAP_WIDTH + COL_W_DRIVER + COL_GAP_WIDTH + COL_W_FIRMWARE + COL_GAP_WIDTH + COL_W_IFACE + COL_GAP_WIDTH + COL_W_MAC + COL_GAP_WIDTH + COL_W_MTU + COL_GAP_WIDTH + COL_W_LINK + COL_GAP_WIDTH + COL_W_SPEED + COL_GAP_WIDTH + COL_W_BOND))
     ${SHOW_BMAC} && SEP_WIDTH=$((SEP_WIDTH + COL_GAP_WIDTH + COL_W_BMAC))
     ${SHOW_LACP} && SEP_WIDTH=$((SEP_WIDTH + COL_GAP_WIDTH + COL_W_LACP))
     ${SHOW_VLAN} && SEP_WIDTH=$((SEP_WIDTH + COL_GAP_WIDTH + COL_W_VLAN))
@@ -441,8 +512,8 @@ if [[ "${OUTPUT_FORMAT}" == "table" ]]; then
     printf '%*s\n' "$SEP_WIDTH" '' | tr ' ' '-'
     # Data rows
     for i in "${RENDER_ORDER[@]}"; do
-        printf "%-${COL_W_DEVICE}s${COL_GAP}%-${COL_W_FIRMWARE}s${COL_GAP}%-${COL_W_IFACE}s${COL_GAP}%-${COL_W_MAC}s${COL_GAP}%-${COL_W_MTU}s${COL_GAP}" \
-            "${DATA_DEVICE[$i]}" "${DATA_FIRMWARE[$i]}" "${DATA_IFACE[$i]}" "${DATA_MAC[$i]}" "${DATA_MTU[$i]}"
+        printf "%-${COL_W_DEVICE}s${COL_GAP}%-${COL_W_DRIVER}s${COL_GAP}%-${COL_W_FIRMWARE}s${COL_GAP}%-${COL_W_IFACE}s${COL_GAP}%-${COL_W_MAC}s${COL_GAP}%-${COL_W_MTU}s${COL_GAP}" \
+            "${DATA_DEVICE[$i]}" "${DATA_DRIVER[$i]}" "${DATA_FIRMWARE[$i]}" "${DATA_IFACE[$i]}" "${DATA_MAC[$i]}" "${DATA_MTU[$i]}"
         pad_color "${DATA_LINK_COLOR[$i]}" "$COL_W_LINK"
         printf "${COL_GAP}"
         pad_color "${DATA_SPEED_COLOR[$i]}" "$COL_W_SPEED"
@@ -461,15 +532,15 @@ if [[ "${OUTPUT_FORMAT}" == "table" ]]; then
 elif [[ "${OUTPUT_FORMAT}" == "csv" ]]; then
     FS="${FIELD_SEP:-,}"
     # CSV Header
-    printf "%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s" "Device" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
+    printf "%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s" "Device" "Driver" "Firmware" "Interface" "MAC Address" "MTU" "Link" "Speed/Duplex" "Parent Bond"
     ${SHOW_BMAC} && printf "${FS}%s" "Bond MAC"
     ${SHOW_LACP} && printf "${FS}%s" "LACP Status"
     ${SHOW_VLAN} && printf "${FS}%s" "VLAN"
     printf "${FS}%s${FS}%s\n" "Switch Name" "Port Name"
     # CSV Data rows
     for i in "${RENDER_ORDER[@]}"; do
-        printf "%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s" \
-            "${DATA_DEVICE[$i]}" "${DATA_FIRMWARE[$i]}" "${DATA_IFACE[$i]}" "${DATA_MAC[$i]}" \
+        printf "%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s${FS}%s" \
+            "${DATA_DEVICE[$i]}" "${DATA_DRIVER[$i]}" "${DATA_FIRMWARE[$i]}" "${DATA_IFACE[$i]}" "${DATA_MAC[$i]}" \
             "${DATA_MTU[$i]}" "${DATA_LINK_PLAIN[$i]}" "${DATA_SPEED_PLAIN[$i]}" "${DATA_BOND_PLAIN[$i]}"
         ${SHOW_BMAC} && printf "${FS}%s" "${DATA_BMAC[$i]}"
         ${SHOW_LACP} && printf "${FS}%s" "${DATA_LACP_PLAIN[$i]}"
@@ -482,6 +553,7 @@ elif [[ "${OUTPUT_FORMAT}" == "json" ]]; then
     for i in "${RENDER_ORDER[@]}"; do
         printf '  {\n'
         printf '    "device": "%s",\n' "$(json_escape "${DATA_DEVICE[$i]}")"
+        printf '    "driver": "%s",\n' "$(json_escape "${DATA_DRIVER[$i]}")"
         printf '    "firmware": "%s",\n' "$(json_escape "${DATA_FIRMWARE[$i]}")"
         printf '    "interface": "%s",\n' "$(json_escape "${DATA_IFACE[$i]}")"
         printf '    "mac_address": "%s",\n' "$(json_escape "${DATA_MAC[$i]}")"
