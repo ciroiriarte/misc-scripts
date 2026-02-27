@@ -1,0 +1,275 @@
+.\" Man page for nic-xray.sh
+.\" Written in classic troff/groff format
+.TH NIC-XRAY 1 "2026-02-27" "nic-xray 1.3" "User Commands"
+.SH NAME
+nic-xray \- detailed physical network interface diagnostics
+.SH SYNOPSIS
+.B nic-xray.sh
+.RI [ \-\-lacp ]
+.RI [ \-\-vlan ]
+.RI [ \-\-bmac ]
+.RI [ \-s [ SEP ]| \-\-separator [= SEP ]]
+.RI [ \-\-group\-bond ]
+.RI [ \-\-output
+.IR FORMAT ]
+.RI [ \-v | \-\-version ]
+.RI [ \-h | \-\-help ]
+.SH DESCRIPTION
+.B nic-xray.sh
+provides a detailed overview of all physical network interfaces on a Linux
+system. It collects and displays PCI slot, firmware version, interface name,
+MAC address, MTU, link status, negotiated speed and duplex, bond membership,
+and LLDP peer information (switch name and port).
+.PP
+Color coding is used in table output to highlight link status, speed tiers,
+bond groupings, and LACP status, making it easy to spot issues at a glance.
+.PP
+Originally developed for OpenStack node deployments, it is suitable for any
+Linux environment.
+.SH OPTIONS
+.TP
+.B \-\-lacp
+Show LACP Aggregator ID and Partner MAC for each bonded interface. Displays
+aggregation state: fully converged, partial, or pending.
+.TP
+.B \-\-vlan
+Show VLAN tagging information obtained from LLDP. Displays VLAN IDs with a
+.B [P]
+marker for the port VLAN ID (PVID).
+.TP
+.B \-\-bmac
+Show the bridge (bond) MAC address column. Displays the system MAC address
+reported by the bonding driver, or
+.B N/A
+for unbonded interfaces.
+.TP
+.BR \-s ", " \-\-separator
+Add column separators to table output using the default separator
+.RB ( \(lq\[u2502]\(rq ).
+When used with CSV output, the separator replaces the default comma.
+.TP
+.BR \-s \fISEP\fR ", " \-\-separator= \fISEP\fR
+Use
+.I SEP
+as the column separator in table and CSV output.
+.TP
+.B \-\-group\-bond
+Sort rows by bond group, then by interface name within each group. Bonded
+interfaces are listed first (grouped by bond), followed by unbonded interfaces
+sorted alphabetically.
+.TP
+.BI \-\-output " FORMAT"
+Set the output format.
+.I FORMAT
+must be one of:
+.RS
+.TP
+.B table
+Default. Aligned columns with dynamic widths and color coding.
+.TP
+.B csv
+Comma-separated values (or custom separator via
+.BR \-s ).
+No color codes.
+.TP
+.B json
+JSON array of objects. No color codes.
+.RE
+.TP
+.BR \-v ", " \-\-version
+Display version information and exit.
+.TP
+.BR \-h ", " \-\-help
+Display usage information and exit.
+.SH OUTPUT COLUMNS
+The following columns are always displayed:
+.TP
+.B Device
+PCI slot identifier (e.g.,
+.IR 0000:3b:00.0 ).
+.TP
+.B Firmware
+Network adapter firmware version as reported by
+.BR ethtool (8).
+.TP
+.B Interface
+Linux network interface name (e.g.,
+.IR eth0 ", " eno1 ).
+.TP
+.B MAC Address
+Permanent hardware MAC address. For bonded interfaces, the address is
+extracted from
+.IR /proc/net/bonding/ .
+.TP
+.B MTU
+Maximum Transmission Unit configured on the interface.
+.TP
+.B Link
+Operational state:
+.B up
+or
+.BR down .
+.TP
+.B Speed/Duplex
+Negotiated link speed and duplex mode (e.g.,
+.IR "10000Mb/s (Full)" ).
+Shows
+.B N/A
+when the link is down or speed cannot be determined.
+.TP
+.B Parent Bond
+Name of the bond master interface, or
+.B None
+if the interface is not bonded.
+.TP
+.B Switch Name
+LLDP-reported remote switch system name.
+.TP
+.B Port Name
+LLDP-reported remote port identifier.
+.PP
+The following columns are shown only when their respective flags are used:
+.TP
+.B Bond MAC
+(shown with
+.BR \-\-bmac )
+System MAC address of the bond.
+.TP
+.B LACP Status
+(shown with
+.BR \-\-lacp )
+LACP aggregation details: Aggregator ID, partner MAC, and convergence state.
+.TP
+.B VLAN
+(shown with
+.BR \-\-vlan )
+VLAN IDs from LLDP, with
+.B [P]
+indicating the port VLAN ID.
+.SH OUTPUT FORMATS
+.SS Table (default)
+Columns are dynamically sized to fit the widest value. Color codes highlight
+link status, speed tiers, bond membership, and LACP status. Use
+.B \-s
+to add visible column separators.
+.SS CSV
+Plain-text comma-separated output suitable for import into spreadsheets or
+processing with tools like
+.BR awk (1).
+No color codes are emitted. The default comma delimiter can be changed with
+.BR \-s .
+.SS JSON
+A JSON array where each element is an object representing one interface.
+All fields use plain strings without color codes. Optional fields
+.RB ( bond_mac ", " lacp_status ", " vlan )
+are included only when their respective flags are active.
+.SH COLOR CODING
+In table output, colors indicate:
+.TP
+.B Speed tiers
+.RS
+.PD 0
+.TP 12
+Magenta
+200 Gbps and above
+.TP
+Cyan
+100 Gbps
+.TP
+White
+25 / 40 / 50 Gbps
+.TP
+Green
+10 Gbps
+.TP
+Yellow
+1 Gbps
+.TP
+Red
+Below 1 Gbps or unknown
+.PD
+.RE
+.TP
+.B Link status
+Green for
+.BR up ,
+red for
+.BR down .
+.TP
+.B Bond names
+Each bond is assigned a distinct color (blue, cyan, yellow, magenta, white)
+cycling through a palette to visually group member interfaces.
+.TP
+.B LACP status
+Green for fully converged, yellow for partial, red for pending.
+.SH REQUIREMENTS
+.B nic-xray.sh
+must be run as
+.BR root .
+.PP
+The following commands must be available in
+.BR PATH :
+.PP
+.RS
+.BR ethtool (8),
+.BR lldpctl (8),
+.BR ip (8),
+.BR awk (1),
+.BR grep (1),
+.BR cat (1),
+.BR readlink (1)
+.RE
+.PP
+The
+.B lldpd
+service should be running to retrieve LLDP information from connected switches.
+On Cisco switches, VLAN information may not be advertised by default; enable it
+with:
+.PP
+.RS
+.B lldp tlv-select vlan-name
+.RE
+.SH EXIT STATUS
+.TP
+.B 0
+Successful execution.
+.TP
+.B 1
+Error: not running as root, missing required commands, or invalid options.
+.SH EXAMPLES
+Default table view:
+.PP
+.RS
+.B sudo nic-xray.sh
+.RE
+.PP
+Show VLAN and LACP information with column separators:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-vlan \-\-lacp \-s
+.RE
+.PP
+Group by bond and show all optional columns:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-group\-bond \-\-lacp \-\-bmac \-\-vlan
+.RE
+.PP
+CSV output with pipe delimiter:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-output csv \-\-separator='|'
+.RE
+.PP
+JSON output with all optional fields:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-vlan \-\-lacp \-\-bmac \-\-output json
+.RE
+.SH AUTHORS
+Ciro Iriarte <ciro.iriarte@millicom.com>
+.SH SEE ALSO
+.BR ethtool (8),
+.BR lldpctl (8),
+.BR ip (8),
+.BR bonding (7)

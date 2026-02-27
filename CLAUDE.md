@@ -19,6 +19,7 @@
 * Use functions when scripts become long and complex.
 
 ## 4. Documentation
+* Every script must have a corresponding man page under `man/man1/` in classic troff/groff format. The man page file uses section 1 (`.1` extension) and must document at minimum: NAME, SYNOPSIS, DESCRIPTION, OPTIONS, EXIT STATUS, EXAMPLES, AUTHORS, and SEE ALSO.
 * Each script should have an entry in the README.md file
 * Each entry shoul include name of the script, Author: Ciro Iriarte, Creation date, update date,, Description, Requirements, Recommendations and usage example.
 * Use UTF-8 based icons to make reading easier.

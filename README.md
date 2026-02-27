@@ -17,6 +17,32 @@ All scripts support `--version` / `-v` and `--help` / `-h` flags.
 
 ---
 
+## 📖 Man Pages
+
+Man pages are available under `man/man1/` for detailed reference.
+
+**Preview locally** (no installation required):
+
+```bash
+man -l man/man1/nic-xray.1
+```
+
+**Install system-wide:**
+
+```bash
+sudo make install-man
+```
+
+After installation, use `man nic-xray` to view the man page.
+
+**Uninstall:**
+
+```bash
+sudo make uninstall-man
+```
+
+---
+
 ## 🔍 `guacamole-reset-user-otp.sh`
 
 **Author**: Ciro Iriarte
