@@ -28,6 +28,9 @@
 #                 --separator redesigned as optional-value flag (applies to CSV too)
 #                 Added --group-bond flag for bond-grouped output
 #
+# Version: 1.3
+
+SCRIPT_VERSION="1.3"
 
 # LOCALE setup, we expect output in English for proper parsing
 LANG=en_US.UTF-8
@@ -42,7 +45,7 @@ SORT_BY_BOND=false
 
 
 # Parse options using getopt
-OPTIONS=$(getopt -o hs:: --long help,lacp,vlan,bmac,separator::,group-bond,output: -n "$0" -- "$@")
+OPTIONS=$(getopt -o hvs:: --long help,version,lacp,vlan,bmac,separator::,group-bond,output: -n "$0" -- "$@")
 if [ $? -ne 0 ]; then
 	echo "Failed to parse options." >&2
 	exit 1
@@ -92,8 +95,14 @@ while true; do
 			esac
 			shift 2
 			;;
+		-v|--version)
+			echo "$0 $SCRIPT_VERSION"
+			exit 0
+			;;
 		-h|--help)
 			echo -e "Usage: $0 [--lacp] [--vlan] [--bmac] [-s[SEP]|--separator[=SEP]] [--group-bond] [--output FORMAT] [--help]"
+			echo -e ""
+			echo -e "Version: $SCRIPT_VERSION"
 			echo -e ""
 			echo -e "Description:"
 			echo -e " Lists physical network interfaces with detailed information including:"
@@ -109,7 +118,8 @@ while true; do
 			echo -e "                     Use SEP as column separator in table and CSV output"
 			echo -e " --group-bond        Sort rows by bond group, then by interface name"
 			echo -e " --output TYPE       Output format: table (default), csv, or json"
-			echo -e " --help              Display this help message"
+			echo -e " -v, --version       Display version information"
+			echo -e " -h, --help          Display this help message"
 			exit 0
 			;;
 		--)

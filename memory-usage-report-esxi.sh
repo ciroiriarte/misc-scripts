@@ -17,11 +17,14 @@
 #   - 2026-02-17: v1.2 - Added --output option for CSV and JSON formats.
 
 # --- Configuration ---
+SCRIPT_VERSION="1.2"
 OUTPUT_FORMAT="table"
 
 # --- Help ---
 show_help() {
-    echo "Usage: $0 [-h|--help] [--output FORMAT]"
+    echo "Usage: $0 [-h|--help] [-v|--version] [--output FORMAT]"
+    echo ""
+    echo "Version: $SCRIPT_VERSION"
     echo ""
     echo "Description:"
     echo " Reports ESXi host and per-VM memory usage including ballooning,"
@@ -30,6 +33,7 @@ show_help() {
     echo ""
     echo "Options:"
     echo " -h, --help        Display this help message"
+    echo " -v, --version     Display version information"
     echo " --output FORMAT   Output format: table (default), csv, or json"
     echo "                   csv: VM table only (ID, name, GB columns)."
     echo "                   json: full report (host_summary, vms, totals)."
@@ -38,6 +42,10 @@ show_help() {
 # --- Argument Parsing ---
 while [ $# -gt 0 ]; do
     case "$1" in
+        -v|--version)
+            echo "$0 $SCRIPT_VERSION"
+            exit 0
+            ;;
         -h|--help)
             show_help
             exit 0

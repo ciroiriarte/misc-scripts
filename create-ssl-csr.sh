@@ -13,6 +13,28 @@
 #   - 2025-06-06: Initial version
 #   - 2025-10-07: Add CA option
 #                 Add self signed option
+#
+# Version: 1.1
+
+SCRIPT_VERSION="1.1"
+
+# === Functions ===
+
+show_help() {
+    echo "Usage: $0 [-h|--help] [-v|--version] [--ca] [--self-signed]"
+    echo ""
+    echo "Version: $SCRIPT_VERSION"
+    echo ""
+    echo "Description:"
+    echo " Generates a private key and CSR file to be sent to a CA."
+    echo " Optionally generates a self-signed certificate."
+    echo ""
+    echo "Options:"
+    echo " --ca              Generate a CA certificate (sets keyUsage to keyCertSign, cRLSign)"
+    echo " --self-signed     Also generate a self-signed certificate"
+    echo " -v, --version     Display version information"
+    echo " -h, --help        Display this help message"
+}
 
 # === Configuration ===
 SITE="site1"                 # Replace with your site identifier
@@ -31,6 +53,14 @@ IS_SELF_SIGNED=false  # Default: do not generate self-signed certificate
 # === Parse Arguments ===
 while [[ "$#" -gt 0 ]]; do
     case $1 in
+        -v|--version)
+            echo "$0 $SCRIPT_VERSION"
+            exit 0
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
         --ca) IS_CA=true ;;
         --self-signed) IS_SELF_SIGNED=true ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;

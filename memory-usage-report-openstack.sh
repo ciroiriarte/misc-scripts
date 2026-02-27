@@ -28,10 +28,14 @@
 
 set -euo pipefail
 
+SCRIPT_VERSION="0.2"
+
 # --- Functions ---
 
 show_help() {
-    echo "Usage: $0 [-h|--help] <domain_name>"
+    echo "Usage: $0 [-h|--help] [-v|--version] <domain_name>"
+    echo ""
+    echo "Version: $SCRIPT_VERSION"
     echo ""
     echo "Description:"
     echo " Provides an accurate summary of OpenStack resources per domain,"
@@ -45,6 +49,7 @@ show_help() {
     echo ""
     echo "Options:"
     echo " -h, --help     Display this help message"
+    echo " -v, --version  Display version information"
     echo ""
     echo "Requirements:"
     echo " - openstack CLI configured with admin or domain admin scope"
@@ -53,7 +58,7 @@ show_help() {
 }
 
 # --- Argument Parsing ---
-OPTIONS=$(getopt -o h --long help -n "$0" -- "$@")
+OPTIONS=$(getopt -o hv --long help,version -n "$0" -- "$@")
 if [ $? -ne 0 ]; then
     echo "Failed to parse options." >&2
     exit 1
@@ -63,6 +68,10 @@ eval set -- "$OPTIONS"
 
 while true; do
     case "$1" in
+        -v|--version)
+            echo "$0 $SCRIPT_VERSION"
+            exit 0
+            ;;
         -h|--help)
             show_help
             exit 0

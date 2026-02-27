@@ -20,13 +20,16 @@
 #   - 2026-02-17: v2.4 - Added --output option for CSV and JSON formats.
 
 # --- Configuration ---
+SCRIPT_VERSION="2.4"
 BASELINE_FILE="/var/log/mem_baseline.txt"
 OUTPUT_FORMAT="table"
 
 # --- Functions ---
 
 show_help() {
-    echo "Usage: $0 [-h|--help] [--output FORMAT]"
+    echo "Usage: $0 [-h|--help] [-v|--version] [--output FORMAT]"
+    echo ""
+    echo "Version: $SCRIPT_VERSION"
     echo ""
     echo "Description:"
     echo " Provides a comprehensive KVM host memory usage and optimization summary."
@@ -35,6 +38,7 @@ show_help() {
     echo ""
     echo "Options:"
     echo " -h, --help        Display this help message"
+    echo " -v, --version     Display version information"
     echo " --output FORMAT   Output format: table (default), csv, or json"
     echo "                   csv: VM table only (VM name + MiB columns)."
     echo "                   json: full report (host_summary, vms, ksm, host_config)."
@@ -62,7 +66,7 @@ json_escape() {
 }
 
 # --- Argument Parsing ---
-OPTIONS=$(getopt -o h --long help,output: -n "$0" -- "$@")
+OPTIONS=$(getopt -o hv --long help,version,output: -n "$0" -- "$@")
 if [ $? -ne 0 ]; then
     echo "Failed to parse options." >&2
     exit 1
@@ -72,6 +76,10 @@ eval set -- "$OPTIONS"
 
 while true; do
     case "$1" in
+        -v|--version)
+            echo "$0 $SCRIPT_VERSION"
+            exit 0
+            ;;
         -h|--help)
             show_help
             exit 0
