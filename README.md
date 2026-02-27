@@ -8,7 +8,7 @@ A collection of Bash scripts to simplify repetitive sysadmin and infrastructure 
 
 **Author**: Ciro Iriarte
 **Created**: 2021-11-02
-**Updated**: 2021-11-02
+**Updated**: 2026-02-27
 
 ### 📝 Description
 
@@ -33,13 +33,25 @@ Reset OTP for a specific user:
 ./guacamole-reset-user-otp.sh ciro.iriarte
 ```
 
+Display version:
+
+```bash
+./guacamole-reset-user-otp.sh --version
+```
+
+Display help:
+
+```bash
+./guacamole-reset-user-otp.sh --help
+```
+
 ---
 
 ## 🔍 `nic-xray.sh`
 
 **Author**: Ciro Iriarte
 **Created**: 2025-06-05
-**Updated**: 2026-02-17
+**Updated**: 2026-02-27
 
 ### 📝 Description
 
@@ -170,6 +182,13 @@ sudo nic-xray.sh --group-bond
 sudo nic-xray.sh --group-bond --lacp -s
 ```
 
+Display version:
+
+```bash
+sudo nic-xray.sh -v
+sudo nic-xray.sh --version
+```
+
 Display help:
 
 ```bash
@@ -183,7 +202,7 @@ sudo nic-xray.sh --help
 
 **Author**: Ciro Iriarte
 **Created**: 2025-06-06
-**Updated**: 2025-10-07
+**Updated**: 2026-02-27
 
 ### 📝 Description
 
@@ -230,13 +249,25 @@ Generate a self-signed CA certificate:
 ./create-ssl-csr.sh --ca --self-signed
 ```
 
+Display version:
+
+```bash
+./create-ssl-csr.sh --version
+```
+
+Display help:
+
+```bash
+./create-ssl-csr.sh --help
+```
+
 ---
 
 ## 🔍 `memory-usage-report-kvm.sh`
 
 **Author**: Ciro Iriarte
 **Created**: 2025-09-11
-**Updated**: 2026-02-17
+**Updated**: 2026-02-27
 
 ### 📝 Description
 
@@ -293,13 +324,19 @@ JSON output (full report):
 sudo ./memory-usage-report-kvm.sh --output json
 ```
 
+Display version:
+
+```bash
+sudo ./memory-usage-report-kvm.sh --version
+```
+
 ---
 
 ## 🔍 `memory-usage-report-esxi.sh`
 
 **Author**: Ciro Iriarte
 **Created**: 2025-09-11
-**Updated**: 2026-02-17
+**Updated**: 2026-02-27
 
 ### 📝 Description
 
@@ -346,13 +383,19 @@ JSON output (full report):
 ./memory-usage-report-esxi.sh --output json
 ```
 
+Display version:
+
+```bash
+./memory-usage-report-esxi.sh --version
+```
+
 ---
 
 ## 🔍 `memory-usage-report-openstack.sh`
 
 **Author**: Ciro Iriarte
 **Created**: 2025-12-24
-**Updated**: 2026-02-17
+**Updated**: 2026-02-27
 
 ### 📝 Description
 
@@ -390,6 +433,12 @@ Summarize resources for a specific domain:
 
 ```bash
 ./memory-usage-report-openstack.sh my-domain
+```
+
+Display version:
+
+```bash
+./memory-usage-report-openstack.sh --version
 ```
 
 Display help:
