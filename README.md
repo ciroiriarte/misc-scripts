@@ -2,7 +2,7 @@
 
 A collection of Bash scripts to simplify repetitive sysadmin and infrastructure operations.
 
-## 📦 Latest Release: [v2.1](https://github.com/ciroiriarte/misc-scripts/releases/tag/v2.1)
+## 📦 Latest Release: [v2.2](https://github.com/ciroiriarte/misc-scripts/releases/tag/v2.2)
 
 | Script | Version |
 |---|---|
