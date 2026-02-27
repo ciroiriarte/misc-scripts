@@ -12,6 +12,7 @@
 * Coding style should be unified/standardized
 * Options should always handle long and short alternatives.
 * Help function must always exist.
+* Every script must define a `SCRIPT_VERSION` variable near the top (after header comments, before configuration) and support `--version`/`-v` flags that output `<script-name> <version>`. The version must also appear in the `# Version:` header comment and in `--help` output.
 * Execution of scripts that require parameters must present the user with a usage message when no parameter is provided.
 * Output formatting should be clean & aesthetic, clear to the user.
 * Use process bars to allow the user to understand process progress. Implement that only when formated output is not requested (CSV, JSON, etc)
