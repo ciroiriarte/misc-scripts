@@ -33,13 +33,13 @@
 #                        Auto-disable colors when stdout is not a terminal
 #                        Optimized ethtool calls (single invocation per interface)
 #                        Graceful message when no interfaces are found
-#   - 2026-02-27: v2.0 - Added network topology diagram output (dot/svg/png)
+#   - 2026-02-27: v2.1 - Added network topology diagram output (dot/svg/png)
 #                        New --diagram-out flag for custom output file path
 #                        Optional graphviz dependency for svg/png rendering
 #
-# Version: 2.0
+# Version: 2.1
 
-SCRIPT_VERSION="2.0"
+SCRIPT_VERSION="2.1"
 
 # LOCALE setup, we expect output in English for proper parsing
 LANG=en_US.UTF-8

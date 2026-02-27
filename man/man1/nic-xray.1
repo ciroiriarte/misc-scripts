@@ -1,6 +1,6 @@
 .\" Man page for nic-xray.sh
 .\" Written in classic troff/groff format
-.TH NIC-XRAY 1 "2026-02-27" "nic-xray 2.0" "User Commands"
+.TH NIC-XRAY 1 "2026-02-27" "nic-xray 2.1" "User Commands"
 .SH NAME
 nic-xray \- detailed physical network interface diagnostics
 .SH SYNOPSIS
@@ -26,6 +26,15 @@ provides a detailed overview of all physical network interfaces on a Linux
 system. It collects and displays PCI slot, driver name, firmware version,
 interface name, MAC address, MTU, link status, negotiated speed and duplex,
 bond membership, and LLDP peer information (switch name and port).
+.PP
+Supports multiple output formats:
+.B table
+(default, with dynamic column widths),
+.BR csv ,
+.BR json ,
+and
+.B network topology diagrams
+.RB ( dot / svg / png ).
 .PP
 Color coding is used in table output to highlight link status, speed tiers,
 bond groupings, and LACP status, making it easy to spot issues at a glance.
@@ -339,11 +348,32 @@ output format has no external dependency beyond the base requirements.
 The
 .B lldpd
 service should be running to retrieve LLDP information from connected switches.
+The switches must also be configured to advertise LLDP messages.
+.PP
 On Cisco switches, VLAN information may not be advertised by default; enable it
 with:
 .PP
 .RS
 .B lldp tlv-select vlan-name
+.RE
+.SH RECOMMENDATIONS
+Copy the script to
+.B /usr/local/sbin
+for easy access:
+.PP
+.RS
+.nf
+sudo cp nic-xray.sh /usr/local/sbin/
+sudo chmod +x /usr/local/sbin/nic-xray.sh
+.fi
+.RE
+.PP
+Ensure the
+.B lldpd
+service is running to retrieve LLDP information:
+.PP
+.RS
+.B sudo systemctl enable \-\-now lldpd
 .RE
 .SH EXIT STATUS
 .TP
@@ -359,6 +389,24 @@ Default table view:
 .B sudo nic-xray.sh
 .RE
 .PP
+Show VLAN information:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-vlan
+.RE
+.PP
+Show LACP peer information:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-lacp
+.RE
+.PP
+Show bond MAC address:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-bmac
+.RE
+.PP
 Show VLAN and LACP information with column separators:
 .PP
 .RS
@@ -371,10 +419,28 @@ Show all optional columns at once:
 .B sudo nic-xray.sh \-\-all
 .RE
 .PP
-Group by bond and show all optional columns:
+Table output with default column separators:
 .PP
 .RS
-.B sudo nic-xray.sh \-\-group\-bond \-\-all
+.B sudo nic-xray.sh \-s
+.RE
+.PP
+Table output with a custom separator:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-separator='|'
+.RE
+.PP
+Group by bond (bonded interfaces first, then unbonded):
+.PP
+.RS
+.B sudo nic-xray.sh \-\-group\-bond
+.RE
+.PP
+Group by bond with all optional columns and separators:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-group\-bond \-\-all \-s
 .RE
 .PP
 Show only interfaces with link up:
@@ -383,16 +449,40 @@ Show only interfaces with link up:
 .B sudo nic-xray.sh \-\-filter\-link up
 .RE
 .PP
+Show only interfaces with link down:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-filter\-link down
+.RE
+.PP
 Disable color output:
 .PP
 .RS
 .B sudo nic-xray.sh \-\-no\-color
 .RE
 .PP
-CSV output with pipe delimiter:
+CSV output:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-output csv
+.RE
+.PP
+Pipe-delimited CSV:
 .PP
 .RS
 .B sudo nic-xray.sh \-\-output csv \-\-separator='|'
+.RE
+.PP
+Tab-separated CSV:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-output csv \-\-separator=$'\\t'
+.RE
+.PP
+JSON output:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-output json
 .RE
 .PP
 JSON output with all optional fields:
@@ -417,6 +507,18 @@ Generate a PNG diagram with custom output path:
 .PP
 .RS
 .B sudo nic-xray.sh \-\-output png \-\-diagram\-out /tmp/network.png
+.RE
+.PP
+Display version:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-version
+.RE
+.PP
+Display help:
+.PP
+.RS
+.B sudo nic-xray.sh \-\-help
 .RE
 .SH AUTHORS
 Ciro Iriarte <ciro.iriarte+software@gmail.com>
