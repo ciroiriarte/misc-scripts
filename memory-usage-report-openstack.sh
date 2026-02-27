@@ -28,14 +28,14 @@
 
 set -euo pipefail
 
-VERSION="0.2"
+SCRIPT_VERSION="0.2"
 
 # --- Functions ---
 
 show_help() {
     echo "Usage: $0 [-h|--help] [-v|--version] <domain_name>"
     echo ""
-    echo "Version: $VERSION"
+    echo "Version: $SCRIPT_VERSION"
     echo ""
     echo "Description:"
     echo " Provides an accurate summary of OpenStack resources per domain,"
@@ -69,7 +69,7 @@ eval set -- "$OPTIONS"
 while true; do
     case "$1" in
         -v|--version)
-            echo "$0 $VERSION"
+            echo "$0 $SCRIPT_VERSION"
             exit 0
             ;;
         -h|--help)

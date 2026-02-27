@@ -30,7 +30,7 @@
 #
 # Version: 1.3
 
-VERSION="1.3"
+SCRIPT_VERSION="1.3"
 
 # LOCALE setup, we expect output in English for proper parsing
 LANG=en_US.UTF-8
@@ -96,13 +96,13 @@ while true; do
 			shift 2
 			;;
 		-v|--version)
-			echo "$0 $VERSION"
+			echo "$0 $SCRIPT_VERSION"
 			exit 0
 			;;
 		-h|--help)
 			echo -e "Usage: $0 [--lacp] [--vlan] [--bmac] [-s[SEP]|--separator[=SEP]] [--group-bond] [--output FORMAT] [--help]"
 			echo -e ""
-			echo -e "Version: $VERSION"
+			echo -e "Version: $SCRIPT_VERSION"
 			echo -e ""
 			echo -e "Description:"
 			echo -e " Lists physical network interfaces with detailed information including:"

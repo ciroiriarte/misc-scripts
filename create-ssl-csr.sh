@@ -16,14 +16,14 @@
 #
 # Version: 1.1
 
-VERSION="1.1"
+SCRIPT_VERSION="1.1"
 
 # === Functions ===
 
 show_help() {
     echo "Usage: $0 [-h|--help] [-v|--version] [--ca] [--self-signed]"
     echo ""
-    echo "Version: $VERSION"
+    echo "Version: $SCRIPT_VERSION"
     echo ""
     echo "Description:"
     echo " Generates a private key and CSR file to be sent to a CA."
@@ -54,7 +54,7 @@ IS_SELF_SIGNED=false  # Default: do not generate self-signed certificate
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -v|--version)
-            echo "$0 $VERSION"
+            echo "$0 $SCRIPT_VERSION"
             exit 0
             ;;
         -h|--help)
