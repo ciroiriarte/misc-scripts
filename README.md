@@ -2,7 +2,9 @@
 
 A collection of Bash scripts to simplify repetitive sysadmin and infrastructure operations.
 
-## 📦 Latest Release: [v2.6](https://github.com/ciroiriarte/misc-scripts/releases/tag/v2.6)
+[![Release](https://img.shields.io/github/v/release/ciroiriarte/misc-scripts)](https://github.com/ciroiriarte/misc-scripts/releases/latest)
+[![License: GPL v3](https://img.shields.io/github/license/ciroiriarte/misc-scripts)](LICENSE)
+[![Shell](https://img.shields.io/badge/language-Bash-green)](https://www.gnu.org/software/bash/)
 
 ---
 
@@ -28,11 +30,11 @@ A collection of Bash scripts to simplify repetitive sysadmin and infrastructure 
 
 | Script | Version | Created | Updated |
 |---|---|---|---|
-| `memory-usage-report-kvm.sh` | 2.4 | 2025-09-11 | 2026-02-27 |
-| `memory-usage-report-esxi.sh` | 1.2 | 2025-09-11 | 2026-02-27 |
-| `memory-usage-report-openstack.sh` | 0.2 | 2025-12-24 | 2026-02-27 |
-| `create-ssl-csr.sh` | 1.1 | 2025-06-06 | 2026-02-27 |
-| `guacamole-reset-user-otp.sh` | 1.0 | 2021-11-02 | 2026-02-27 |
+| `memory-usage-report-kvm.sh` | ![v2.4](https://img.shields.io/badge/version-2.4-blue) | 2025-09-11 | 2026-02-27 |
+| `memory-usage-report-esxi.sh` | ![v1.2](https://img.shields.io/badge/version-1.2-blue) | 2025-09-11 | 2026-02-27 |
+| `memory-usage-report-openstack.sh` | ![v0.2](https://img.shields.io/badge/version-0.2-orange) | 2025-12-24 | 2026-02-27 |
+| `create-ssl-csr.sh` | ![v1.1](https://img.shields.io/badge/version-1.1-blue) | 2025-06-06 | 2026-02-27 |
+| `guacamole-reset-user-otp.sh` | ![v1.0](https://img.shields.io/badge/version-1.0-blue) | 2021-11-02 | 2026-02-27 |
 
 All scripts support `--version` / `-v` and `--help` / `-h` flags.
 
