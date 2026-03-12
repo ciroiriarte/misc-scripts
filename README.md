@@ -194,7 +194,7 @@ Provides an accurate summary of OpenStack resources per domain, with a per-proje
 
 ### 🔍 `os-import-cloud-images.sh`
 
-Imports upstream cloud images into OpenStack Glance with standardized metadata properties optimized for virtio/UEFI/q35 environments. Dynamically discovers the latest releases from distribution mirrors, optionally customizes them (e.g. injecting qemu-guest-agent), converts to the target disk format, and uploads with full Glance metadata.
+Imports upstream cloud images into OpenStack Glance with standardized metadata properties optimized for virtio/UEFI/q35 environments. Dynamically discovers the latest releases from distribution mirrors, optionally customizes them, converts to the target disk format, and uploads with full Glance metadata.
 
 Supported distributions: **Debian**, **Ubuntu LTS**, **Rocky Linux** (plain and LVM), **openSUSE Leap**, **Oracle Linux**.
 
@@ -208,8 +208,52 @@ Default disk format is **raw** (recommended for Ceph RBD backends).
   - `jq`
   - `curl` or `wget`
 - Optional:
-  - `virt-customize` (libguestfs-tools) — for guest-agent injection
+  - `virt-customize` (libguestfs-tools) — for image customization (see below)
 - A sourced OpenStack credentials file (e.g., `openrc.sh`)
+
+#### 🔧 Per-Distribution Customizations
+
+When `virt-customize` is available (and `--no-customize` is not used), the following customizations are applied:
+
+| Distribution | Customization | Details |
+|---|---|---|
+| Debian, Ubuntu | `guest-agent` | Installs `qemu-guest-agent` package (not included by default) |
+| openSUSE Leap | `ptp-fix` | Injects `/etc/modules-load.d/ptp_kvm.conf` to load the `ptp_kvm` kernel module |
+| Rocky Linux (LVM) | `lvm-pvresize` | Injects a cloud-init bootcmd (`/etc/cloud/cloud.cfg.d/99-pvresize.cfg`) that runs `pvresize` on all PVs at every boot, so the VG gains free space after a volume resize. LV allocation (`lvresize`/`lvcreate`) is left to the user. |
+| Rocky Linux, Oracle Linux | — | No customization needed (guest-agent already included) |
+
+All customized images have `/etc/machine-id` truncated to avoid duplicate IDs on clone.
+
+#### 📋 Glance Image Properties
+
+Every imported image is tagged with standardized hardware metadata:
+
+| Property | Value | Purpose |
+|---|---|---|
+| `os_type` | `linux` | OS family |
+| `hw_machine_type` | `q35` | Modern PCIe-native machine type |
+| `hw_firmware_type` | `uefi` | UEFI boot |
+| `hw_scsi_model` | `virtio-scsi` | Paravirtualized SCSI controller |
+| `hw_disk_bus` | `scsi` | Disk attached via virtio-scsi |
+| `hw_vif_model` | `virtio` | Paravirtualized NIC |
+| `hw_vif_multiqueue_enabled` | `true` | Multi-queue for better network throughput |
+| `hw_virtio_packed_ring` | `true` | Packed virtqueue for lower overhead |
+| `hw_video_model` | `virtio` | Paravirtualized GPU |
+| `hw_serial_port_count` | `1` | Serial console access |
+| `hw_qemu_guest_agent` | `true` | Enables guest agent communication |
+| `os_require_quiesce` | `true` | Quiesced snapshots for consistent backups |
+| `hw_require_fsfreeze` | `true` | Filesystem freeze before snapshots |
+
+Per-distribution properties are also set: `os_distro`, `os_version`, `os_admin_user`, and `has_auto_disk_config`.
+
+| Distribution | `os_distro` | `os_admin_user` | `has_auto_disk_config` |
+|---|---|---|---|
+| Debian | `debian` | `debian` | `true` |
+| Ubuntu | `ubuntu` | `ubuntu` | `true` |
+| Rocky Linux | `rocky` | `rocky` | `true` |
+| Rocky Linux (LVM) | `rocky` | `rocky` | `false` |
+| openSUSE Leap | `opensuse` | `opensuse` | `true` |
+| Oracle Linux | `oel` | `oracle` | `false` |
 
 #### 💡 Recommendations
 
@@ -219,6 +263,7 @@ Default disk format is **raw** (recommended for Ceph RBD backends).
   ```
 - Use `raw` disk format (default) when your Glance backend is Ceph RBD to leverage copy-on-write cloning.
 - Use `--no-customize` if guest-agent installation will be handled via cloud-init user-data instead.
+- For LVM images, after booting a VM with a larger volume, the PV is already resized. Use `vgs` to see free space, then `lvresize`/`lvcreate` as needed.
 
 #### 🚀 Usage
 

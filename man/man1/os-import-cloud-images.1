@@ -54,7 +54,9 @@ Scan public mirrors for available versions
 .IP 2.
 Download cloud image (cached in /var/tmp/os-cloud-images/)
 .IP 3.
-Optionally inject qemu-guest-agent via virt-customize
+Optionally customize via virt-customize (see
+.B IMAGE CUSTOMIZATIONS
+below)
 .IP 4.
 Convert to target disk format (raw or qcow2)
 .IP 5.
@@ -113,33 +115,92 @@ Target architecture (default: x86_64). Currently only x86_64 is supported.
 .TP
 .BR \-n ", " \-\-dry\-run
 Show what would be done without making any changes.
+.SH IMAGE CUSTOMIZATIONS
+When
+.BR virt-customize (1)
+is available (and
+.B \-\-no\-customize
+is not used), the following per-distribution customizations are applied:
+.TP
+.B Debian, Ubuntu \(em guest-agent
+Installs the
+.B qemu-guest-agent
+package, which is not included in these cloud images by default.
+.TP
+.B openSUSE Leap \(em ptp-fix
+Injects
+.I /etc/modules-load.d/ptp_kvm.conf
+to load the
+.B ptp_kvm
+kernel module at boot for accurate time synchronization.
+.TP
+.B Rocky Linux LVM \(em lvm-pvresize
+Injects a cloud-init bootcmd
+.RI ( /etc/cloud/cloud.cfg.d/99-pvresize.cfg )
+that runs
+.B pvresize
+on all physical volumes at every boot. After a Cinder volume resize and
+reboot, the VG automatically gains free space. LV allocation
+.RB ( lvresize / lvcreate )
+is left to the user.
+.TP
+.B Rocky Linux (plain), Oracle Linux
+No customization needed; qemu-guest-agent is already included in these
+cloud images.
+.PP
+All customized images have
+.I /etc/machine-id
+truncated to zero length to avoid duplicate machine IDs when cloning.
 .SH GLANCE IMAGE PROPERTIES
 The following standardized properties are set on every imported image:
 .PP
 .TS
 tab(|);
+lb lb
 l l.
+Property|Value
+_
 os_type|linux
-hw_qemu_guest_agent|true
-os_require_quiesce|true
-hw_require_fsfreeze|true
 hw_machine_type|q35
 hw_firmware_type|uefi
-hw_serial_port_count|1
+hw_scsi_model|virtio-scsi
+hw_disk_bus|scsi
 hw_vif_model|virtio
 hw_vif_multiqueue_enabled|true
 hw_virtio_packed_ring|true
-hw_scsi_model|virtio-scsi
-hw_disk_bus|scsi
 hw_video_model|virtio
+hw_serial_port_count|1
+hw_qemu_guest_agent|true
+os_require_quiesce|true
+hw_require_fsfreeze|true
 .TE
 .PP
 Per-distribution properties are also set:
-.BR os_distro ,
-.BR os_version ,
-.BR os_admin_user ,
-and
-.BR has_auto_disk_config .
+.PP
+.TS
+tab(|);
+lb lb lb lb
+l l l l.
+Distribution|os_distro|os_admin_user|has_auto_disk_config
+_
+Debian|debian|debian|true
+Ubuntu|ubuntu|ubuntu|true
+Rocky Linux|rocky|rocky|true
+Rocky Linux (LVM)|rocky|rocky|false
+openSUSE Leap|opensuse|opensuse|true
+Oracle Linux|oel|oracle|false
+.TE
+.PP
+The
+.B os_version
+property is set to the version number discovered from the mirror
+(e.g. "12", "24.04", "9").
+.PP
+The
+.B os_license
+property can be overridden with the
+.B \-\-os\-license
+option for images that require license tracking.
 .SH REQUIREMENTS
 The following commands must be available in
 .BR PATH :
