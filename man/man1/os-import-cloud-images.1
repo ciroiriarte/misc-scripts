@@ -1,0 +1,215 @@
+.\" Man page for os-import-cloud-images.sh
+.\" Written in classic troff/groff format
+.TH OS-IMPORT-CLOUD-IMAGES 1 "2026-03-12" "os-import-cloud-images 1.0" "User Commands"
+.SH NAME
+os-import-cloud-images \- import upstream cloud images into OpenStack Glance
+.SH SYNOPSIS
+.B os-import-cloud-images.sh
+.RB [ \-h | \-\-help ]
+.RB [ \-v | \-\-version ]
+.RB [ \-i | \-\-interactive ]
+.RB [ \-b | \-\-batch ]
+.RB [ \-l | \-\-list ]
+.RB [ \-d | \-\-distro
+.IR NAME ]
+.RB [ \-f | \-\-format
+.IR FMT ]
+.RB [ \-\-visibility
+.IR VIS ]
+.RB [ \-\-os\-license
+.IR LIC ]
+.RB [ \-\-force ]
+.RB [ \-\-no\-customize ]
+.RB [ \-\-arch
+.IR ARCH ]
+.RB [ \-n | \-\-dry\-run ]
+.SH DESCRIPTION
+.B os-import-cloud-images.sh
+discovers the latest upstream cloud images from distribution mirrors, downloads
+them, optionally customizes them (e.g. injecting qemu-guest-agent), converts
+them to the target disk format, and uploads them to OpenStack Glance with
+standardized metadata properties optimized for virtio, UEFI, and q35
+machine type.
+.PP
+Supported distributions (last two releases each, discovered dynamically):
+.IP \(bu 3
+Debian
+.IP \(bu
+Ubuntu LTS
+.IP \(bu
+Rocky Linux (plain and LVM variants)
+.IP \(bu
+openSUSE Leap
+.IP \(bu
+Oracle Linux
+.PP
+The default disk format is
+.B raw
+which is recommended for Ceph RBD backends to leverage copy-on-write cloning
+and avoid double conversion overhead that qcow2 incurs.
+.PP
+Workflow per image:
+.IP 1. 4
+Scan public mirrors for available versions
+.IP 2.
+Download cloud image (cached in /var/tmp/os-cloud-images/)
+.IP 3.
+Optionally inject qemu-guest-agent via virt-customize
+.IP 4.
+Convert to target disk format (raw or qcow2)
+.IP 5.
+Upload to Glance with standardized metadata properties
+.SH OPTIONS
+.TP
+.BR \-v ", " \-\-version
+Display version information and exit.
+.TP
+.BR \-h ", " \-\-help
+Display usage information and exit.
+.TP
+.BR \-i ", " \-\-interactive
+Select images interactively from the discovered catalog.
+This is the default when running on a TTY.
+.TP
+.BR \-b ", " \-\-batch
+Import all discovered images non-interactively.
+.TP
+.BR \-l ", " \-\-list
+List discovered images and exit without importing.
+.TP
+.BR \-d ", " \-\-distro " " \fINAME\fR
+Filter by distribution family. Supported values:
+.BR debian ", " ubuntu ", " rocky ", " opensuse ", " oracle .
+.TP
+.BR \-f ", " \-\-format " " \fIFMT\fR
+Target disk format for Glance:
+.B raw
+(default, recommended for Ceph RBD) or
+.BR qcow2 .
+.TP
+.BI \-\-visibility " VIS"
+Image visibility in Glance:
+.B public
+(default) or
+.BR private .
+Public images are visible to all projects; private images are only
+visible to the uploading project.
+.TP
+.BI \-\-os\-license " LIC"
+Override the
+.B os_license
+image property. Useful for images requiring license tracking
+(e.g. "rhel" for Red Hat Enterprise Linux).
+.TP
+.B \-\-force
+Replace existing images with the same name instead of skipping.
+.TP
+.B \-\-no\-customize
+Skip virt-customize steps (guest-agent injection, ptp_kvm, etc.).
+Useful when customization will be handled via cloud-init instead.
+.TP
+.BI \-\-arch " ARCH"
+Target architecture (default: x86_64). Currently only x86_64 is supported.
+.TP
+.BR \-n ", " \-\-dry\-run
+Show what would be done without making any changes.
+.SH GLANCE IMAGE PROPERTIES
+The following standardized properties are set on every imported image:
+.PP
+.TS
+tab(|);
+l l.
+os_type|linux
+hw_qemu_guest_agent|true
+os_require_quiesce|true
+hw_require_fsfreeze|true
+hw_machine_type|q35
+hw_firmware_type|uefi
+hw_serial_port_count|1
+hw_vif_model|virtio
+hw_vif_multiqueue_enabled|true
+hw_virtio_packed_ring|true
+hw_scsi_model|virtio-scsi
+hw_disk_bus|scsi
+hw_video_model|virtio
+.TE
+.PP
+Per-distribution properties are also set:
+.BR os_distro ,
+.BR os_version ,
+.BR os_admin_user ,
+and
+.BR has_auto_disk_config .
+.SH REQUIREMENTS
+The following commands must be available in
+.BR PATH :
+.PP
+.RS
+.BR openstack (1)
+(python-openstackclient),
+.BR qemu-img (1),
+.BR jq (1),
+.BR curl (1)
+or
+.BR wget (1)
+.RE
+.PP
+Optional:
+.BR virt-customize (1)
+(from libguestfs-tools) for guest-agent injection and image customization.
+.PP
+An OpenStack credentials file must be sourced before running the script
+(e.g.,
+.IR openrc.sh ).
+The credentials should have admin scope for public image uploads.
+.SH EXIT STATUS
+.TP
+.B 0
+Successful execution.
+.TP
+.B 1
+Error: missing dependencies, invalid options, download failure, or
+Glance upload failure.
+.SH EXAMPLES
+List available images:
+.PP
+.RS
+.B os-import-cloud-images.sh -l
+.RE
+.PP
+Import all images interactively:
+.PP
+.RS
+.B os-import-cloud-images.sh -i
+.RE
+.PP
+Import all Debian images in batch mode:
+.PP
+.RS
+.B os-import-cloud-images.sh -b -d debian
+.RE
+.PP
+Import as private images with qcow2 format:
+.PP
+.RS
+.B os-import-cloud-images.sh -b --visibility private -f qcow2
+.RE
+.PP
+Dry run to preview what would be imported:
+.PP
+.RS
+.B os-import-cloud-images.sh -n -b
+.RE
+.PP
+Import with license override:
+.PP
+.RS
+.B os-import-cloud-images.sh -b --os-license rhel -d oracle
+.RE
+.SH AUTHORS
+Ciro Iriarte <ciro.iriarte+software@gmail.com>
+.SH SEE ALSO
+.BR openstack (1),
+.BR qemu-img (1),
+.BR virt-customize (1),
+.BR jq (1)

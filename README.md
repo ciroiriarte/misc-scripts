@@ -16,6 +16,7 @@ A collection of Bash scripts to simplify repetitive sysadmin and infrastructure 
   - [memory-usage-report-kvm.sh](#-memory-usage-report-kvmsh)
   - [memory-usage-report-esxi.sh](#-memory-usage-report-esxish)
   - [memory-usage-report-openstack.sh](#-memory-usage-report-openstacksh)
+  - [os-import-cloud-images.sh](#-os-import-cloud-imagessh)
   - [create-ssl-csr.sh](#-create-ssl-csrsh)
   - [guacamole-reset-user-otp.sh](#-guacamole-reset-user-otpsh)
 - [Documentation](#-documentation)
@@ -33,6 +34,7 @@ A collection of Bash scripts to simplify repetitive sysadmin and infrastructure 
 | `memory-usage-report-kvm.sh` | ![v2.4](https://img.shields.io/badge/version-2.4-blue) | 2025-09-11 | 2026-02-27 |
 | `memory-usage-report-esxi.sh` | ![v1.2](https://img.shields.io/badge/version-1.2-blue) | 2025-09-11 | 2026-02-27 |
 | `memory-usage-report-openstack.sh` | ![v0.2](https://img.shields.io/badge/version-0.2-orange) | 2025-12-24 | 2026-02-27 |
+| `os-import-cloud-images.sh` | ![v1.0](https://img.shields.io/badge/version-1.0-blue) | 2026-03-12 | 2026-03-12 |
 | `create-ssl-csr.sh` | ![v1.1](https://img.shields.io/badge/version-1.1-blue) | 2025-06-06 | 2026-02-27 |
 | `guacamole-reset-user-otp.sh` | ![v1.0](https://img.shields.io/badge/version-1.0-blue) | 2021-11-02 | 2026-02-27 |
 
@@ -186,6 +188,70 @@ Provides an accurate summary of OpenStack resources per domain, with a per-proje
 
 # Display help
 ./memory-usage-report-openstack.sh --help
+```
+
+---
+
+### 🔍 `os-import-cloud-images.sh`
+
+Imports upstream cloud images into OpenStack Glance with standardized metadata properties optimized for virtio/UEFI/q35 environments. Dynamically discovers the latest releases from distribution mirrors, optionally customizes them (e.g. injecting qemu-guest-agent), converts to the target disk format, and uploads with full Glance metadata.
+
+Supported distributions: **Debian**, **Ubuntu LTS**, **Rocky Linux** (plain and LVM), **openSUSE Leap**, **Oracle Linux**.
+
+Default disk format is **raw** (recommended for Ceph RBD backends).
+
+#### ⚙️ Requirements
+
+- Required tools:
+  - `openstack` CLI (python-openstackclient, configured with admin credentials)
+  - `qemu-img` (qemu-utils / qemu-tools)
+  - `jq`
+  - `curl` or `wget`
+- Optional:
+  - `virt-customize` (libguestfs-tools) — for guest-agent injection
+- A sourced OpenStack credentials file (e.g., `openrc.sh`)
+
+#### 💡 Recommendations
+
+- Source your OpenStack credentials before running:
+  ```bash
+  source ~/openrc.sh
+  ```
+- Use `raw` disk format (default) when your Glance backend is Ceph RBD to leverage copy-on-write cloning.
+- Use `--no-customize` if guest-agent installation will be handled via cloud-init user-data instead.
+
+#### 🚀 Usage
+
+```bash
+# List available images
+./os-import-cloud-images.sh -l
+
+# Interactive selection
+./os-import-cloud-images.sh -i
+
+# Import all images in batch
+./os-import-cloud-images.sh -b
+
+# Import Debian images only
+./os-import-cloud-images.sh -b -d debian
+
+# Import as private images
+./os-import-cloud-images.sh -b --visibility private
+
+# Use qcow2 format (non-Ceph backends)
+./os-import-cloud-images.sh -b -f qcow2
+
+# Override os_license property
+./os-import-cloud-images.sh -b --os-license rhel
+
+# Dry run
+./os-import-cloud-images.sh -n -b
+
+# Display version
+./os-import-cloud-images.sh --version
+
+# Display help
+./os-import-cloud-images.sh --help
 ```
 
 ---
