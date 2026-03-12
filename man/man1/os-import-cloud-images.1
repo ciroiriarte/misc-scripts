@@ -100,8 +100,8 @@ visible to the uploading project.
 .BI \-\-os\-license " LIC"
 Override the
 .B os_license
-image property. Useful for images requiring license tracking
-(e.g. "rhel" for Red Hat Enterprise Linux).
+image property (default: "opensource"). Useful for images requiring
+license tracking (e.g. "rhel" for Red Hat Enterprise Linux).
 .TP
 .B \-\-force
 Replace existing images with the same name instead of skipping.
@@ -179,16 +179,16 @@ Per-distribution properties are also set:
 .PP
 .TS
 tab(|);
-lb lb lb lb
-l l l l.
-Distribution|os_distro|os_admin_user|has_auto_disk_config
+lb lb lb lb lb
+l l l l l.
+Distribution|os_distro|os_admin_user|has_auto_disk_config|os_license
 _
-Debian|debian|debian|true
-Ubuntu|ubuntu|ubuntu|true
-Rocky Linux|rocky|rocky|true
-Rocky Linux (LVM)|rocky|rocky|false
-openSUSE Leap|opensuse|opensuse|true
-Oracle Linux|oel|oracle|false
+Debian|debian|debian|true|opensource
+Ubuntu|ubuntu|ubuntu|true|opensource
+Rocky Linux|rocky|rocky|true|opensource
+Rocky Linux (LVM)|rocky|rocky|false|opensource
+openSUSE Leap|opensuse|opensuse|true|opensource
+Oracle Linux|oel|oracle|false|opensource
 .TE
 .PP
 The
@@ -198,9 +198,10 @@ property is set to the version number discovered from the mirror
 .PP
 The
 .B os_license
-property can be overridden with the
+property defaults to "opensource" for all discovered distributions and can
+be overridden with the
 .B \-\-os\-license
-option for images that require license tracking.
+option (e.g. "rhel" for Red Hat Enterprise Linux images).
 .SH REQUIREMENTS
 The following commands must be available in
 .BR PATH :

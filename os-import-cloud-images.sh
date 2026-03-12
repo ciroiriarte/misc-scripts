@@ -127,7 +127,7 @@ Options:
   -f, --format FMT      Disk format: raw (default), qcow2
   -d, --distro NAME     Filter by family: debian ubuntu rocky opensuse oracle
       --visibility VIS  Image visibility: public (default) or private
-      --os-license LIC  Override os_license image property (e.g. "rhel")
+      --os-license LIC  Override os_license image property (default: "opensource")
       --force           Replace existing images with same name
       --no-customize    Skip virt-customize (guest-agent injection, etc.)
       --arch ARCH       Target architecture (default: x86_64)
@@ -157,6 +157,7 @@ EOF
 # --- Image catalog (populated dynamically by mirror discovery) ----------------
 declare -a IMG_KEY=() IMG_NAME=() IMG_URL=() IMG_FAMILY=() IMG_CUSTOMIZE=()
 declare -a IMG_DISTRO=() IMG_VERSION=() IMG_ADMIN_USER=() IMG_AUTO_DISK=()
+declare -a IMG_LICENSE=()
 IMG_COUNT=0
 
 _reg() {
@@ -169,6 +170,7 @@ _reg() {
     IMG_VERSION+=("${7:-}")
     IMG_ADMIN_USER+=("${8:-}")
     IMG_AUTO_DISK+=("${9:-true}")
+    IMG_LICENSE+=("${10:-opensource}")
     (( IMG_COUNT++ )) || true
 }
 
@@ -215,7 +217,7 @@ discover_debian() {
 
     printf '%s\n' "${entries[@]}" | sort -t'|' -k1 -rn | head -"$MAX_VERSIONS" \
     | while IFS='|' read -r ver codename filename; do
-        echo "debian-${ver}|Debian ${ver} (${codename})|${base}/${codename}/latest/${filename}|debian|guest-agent|debian|${ver}|debian|true"
+        echo "debian-${ver}|Debian ${ver} (${codename})|${base}/${codename}/latest/${filename}|debian|guest-agent|debian|${ver}|debian|true|opensource"
     done
 }
 
@@ -238,7 +240,7 @@ discover_ubuntu() {
             | sort -V | tail -1)
         [[ -n "$filename" ]] || continue
         local key_ver=${ver//.}
-        echo "ubuntu-${key_ver}|Ubuntu ${ver} LTS|${base}/${ver}/release/${filename}|ubuntu|guest-agent|ubuntu|${ver}|ubuntu|true"
+        echo "ubuntu-${key_ver}|Ubuntu ${ver} LTS|${base}/${ver}/release/${filename}|ubuntu|guest-agent|ubuntu|${ver}|ubuntu|true|opensource"
     done
 }
 
@@ -265,7 +267,7 @@ discover_rocky() {
                 | sort -V | tail -1)
         fi
         [[ -n "$filename" ]] && \
-            echo "rocky-${ver}|Rocky Linux ${ver}|${base}/${ver}/images/x86_64/${filename}|rocky||rocky|${ver}|rocky|true"
+            echo "rocky-${ver}|Rocky Linux ${ver}|${base}/${ver}/images/x86_64/${filename}|rocky||rocky|${ver}|rocky|true|opensource"
 
         # GenericCloud-LVM — LVM-based root disk
         local lvm_filename
@@ -277,7 +279,7 @@ discover_rocky() {
                 | sort -V | tail -1)
         fi
         [[ -n "$lvm_filename" ]] && \
-            echo "rocky-${ver}-lvm|Rocky Linux ${ver} (LVM)|${base}/${ver}/images/x86_64/${lvm_filename}|rocky|lvm-pvresize|rocky|${ver}|rocky|false"
+            echo "rocky-${ver}-lvm|Rocky Linux ${ver} (LVM)|${base}/${ver}/images/x86_64/${lvm_filename}|rocky|lvm-pvresize|rocky|${ver}|rocky|false|opensource"
     done
 }
 
@@ -331,7 +333,7 @@ discover_opensuse() {
         fi
 
         [[ -n "$url" ]] || continue
-        echo "opensuse-${ver}|openSUSE Leap ${ver}|${url}|opensuse|ptp-fix|opensuse|${ver}|opensuse|true"
+        echo "opensuse-${ver}|openSUSE Leap ${ver}|${url}|opensuse|ptp-fix|opensuse|${ver}|opensuse|true|opensource"
         (( found++ )) || true
     done
 }
@@ -356,7 +358,7 @@ discover_oracle() {
         local update
         update=$(echo "$filename" | sed 's/OL[0-9]*U\([0-9]*\).*/\1/')
 
-        echo "oracle-${major}|Oracle Linux ${major}.${update}|${base}${basepath}/${filename}|oracle||oel|${major}.${update}|oracle|false"
+        echo "oracle-${major}|Oracle Linux ${major}.${update}|${base}${basepath}/${filename}|oracle||oel|${major}.${update}|oracle|false|opensource"
         (( found++ )) || true
     done
 }
@@ -382,9 +384,9 @@ build_catalog() {
     for family in "${families[@]}"; do
         if [[ -s "$DISCOVERY_TMPDIR/$family" ]]; then
             local count=0
-            while IFS='|' read -r key name url fam customize distro version admin_user auto_disk; do
+            while IFS='|' read -r key name url fam customize distro version admin_user auto_disk license; do
                 [[ -n "$url" ]] || continue
-                _reg "$key" "$name" "$url" "$fam" "$customize" "$distro" "$version" "$admin_user" "$auto_disk"
+                _reg "$key" "$name" "$url" "$fam" "$customize" "$distro" "$version" "$admin_user" "$auto_disk" "$license"
                 (( count++ )) || true
             done < "$DISCOVERY_TMPDIR/$family"
             ok "${family}: ${count} image(s)"
@@ -565,9 +567,11 @@ build_glance_properties() {
     fi
     props+=(--property has_auto_disk_config="${IMG_AUTO_DISK[$idx]:-true}")
 
-    # os_license override
+    # os_license: CLI override takes precedence, otherwise per-distro default
     if [[ -n "$OS_LICENSE" ]]; then
         props+=(--property os_license="$OS_LICENSE")
+    else
+        props+=(--property os_license="${IMG_LICENSE[$idx]:-opensource}")
     fi
 
     printf '%s\n' "${props[@]}"

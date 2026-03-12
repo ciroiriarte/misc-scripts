@@ -244,16 +244,18 @@ Every imported image is tagged with standardized hardware metadata:
 | `os_require_quiesce` | `true` | Quiesced snapshots for consistent backups |
 | `hw_require_fsfreeze` | `true` | Filesystem freeze before snapshots |
 
-Per-distribution properties are also set: `os_distro`, `os_version`, `os_admin_user`, and `has_auto_disk_config`.
+Per-distribution properties are also set: `os_distro`, `os_version`, `os_admin_user`, `has_auto_disk_config`, and `os_license`.
 
-| Distribution | `os_distro` | `os_admin_user` | `has_auto_disk_config` |
-|---|---|---|---|
-| Debian | `debian` | `debian` | `true` |
-| Ubuntu | `ubuntu` | `ubuntu` | `true` |
-| Rocky Linux | `rocky` | `rocky` | `true` |
-| Rocky Linux (LVM) | `rocky` | `rocky` | `false` |
-| openSUSE Leap | `opensuse` | `opensuse` | `true` |
-| Oracle Linux | `oel` | `oracle` | `false` |
+| Distribution | `os_distro` | `os_admin_user` | `has_auto_disk_config` | `os_license` |
+|---|---|---|---|---|
+| Debian | `debian` | `debian` | `true` | `opensource` |
+| Ubuntu | `ubuntu` | `ubuntu` | `true` | `opensource` |
+| Rocky Linux | `rocky` | `rocky` | `true` | `opensource` |
+| Rocky Linux (LVM) | `rocky` | `rocky` | `false` | `opensource` |
+| openSUSE Leap | `opensuse` | `opensuse` | `true` | `opensource` |
+| Oracle Linux | `oel` | `oracle` | `false` | `opensource` |
+
+The `os_license` property defaults to `opensource` for all discovered distributions and can be overridden with `--os-license` (e.g. `--os-license rhel` for RHEL images).
 
 #### 💡 Recommendations
 
