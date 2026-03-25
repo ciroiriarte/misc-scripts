@@ -1,6 +1,6 @@
 .\" Man page for os-import-cloud-images.sh
 .\" Written in classic troff/groff format
-.TH OS-IMPORT-CLOUD-IMAGES 1 "2026-03-12" "os-import-cloud-images 1.0" "User Commands"
+.TH OS-IMPORT-CLOUD-IMAGES 1 "2026-03-25" "os-import-cloud-images 1.1" "User Commands"
 .SH NAME
 os-import-cloud-images \- import upstream cloud images into OpenStack Glance
 .SH SYNOPSIS
@@ -193,8 +193,17 @@ Oracle Linux|oel|oracle|false|opensource
 .PP
 The
 .B os_version
-property is set to the version number discovered from the mirror
-(e.g. "12", "24.04", "9").
+property is initially set to the version discovered from the mirror
+(e.g. "24.04", "9.7", "15.6").
+When
+.BR virt-cat (1)
+is available, the precise version is probed from the downloaded image
+by reading
+.I /etc/debian_version
+(Debian) or
+.I /etc/os-release
+(all other distributions), yielding point releases such as "12.13"
+for Debian.
 .PP
 The
 .B os_license

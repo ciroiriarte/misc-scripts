@@ -34,7 +34,7 @@ A collection of Bash scripts to simplify repetitive sysadmin and infrastructure 
 | `memory-usage-report-kvm.sh` | ![v2.4](https://img.shields.io/badge/version-2.4-blue) | 2025-09-11 | 2026-02-27 |
 | `memory-usage-report-esxi.sh` | ![v1.2](https://img.shields.io/badge/version-1.2-blue) | 2025-09-11 | 2026-02-27 |
 | `memory-usage-report-openstack.sh` | ![v0.2](https://img.shields.io/badge/version-0.2-orange) | 2025-12-24 | 2026-02-27 |
-| `os-import-cloud-images.sh` | ![v1.0](https://img.shields.io/badge/version-1.0-blue) | 2026-03-12 | 2026-03-12 |
+| `os-import-cloud-images.sh` | ![v1.1](https://img.shields.io/badge/version-1.1-blue) | 2026-03-12 | 2026-03-25 |
 | `create-ssl-csr.sh` | ![v1.1](https://img.shields.io/badge/version-1.1-blue) | 2025-06-06 | 2026-02-27 |
 | `guacamole-reset-user-otp.sh` | ![v1.0](https://img.shields.io/badge/version-1.0-blue) | 2021-11-02 | 2026-02-27 |
 

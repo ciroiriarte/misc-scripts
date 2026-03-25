@@ -6,7 +6,7 @@
 #
 # Author: Ciro Iriarte <ciro.iriarte+software@gmail.com>
 # Created: 2026-03-12
-# Version: 1.0
+# Version: 1.1
 #
 # Requirements:
 #   - openstack CLI (python-openstackclient) configured with admin credentials
@@ -16,6 +16,12 @@
 #   - jq
 #
 # Changelog:
+#   - 2026-03-25: v1.1 - Include point release in os_version property:
+#                         Rocky Linux via mirror filename parsing, all
+#                         distros via image probing with virt-cat (reads
+#                         /etc/debian_version or /etc/os-release). Update
+#                         Rocky filename patterns for GenericCloud-Base
+#                         naming (Rocky 10+). Closes #1.
 #   - 2026-03-12: v1.0 - Initial release. Supports Debian, Ubuntu LTS,
 #                         Rocky Linux, openSUSE Leap, Oracle Linux, and RHEL
 #                         (manual download). Dynamic mirror discovery, parallel
@@ -25,7 +31,7 @@
 set -euo pipefail
 
 # --- Configuration ---
-SCRIPT_VERSION="1.0"
+SCRIPT_VERSION="1.1"
 TIMESTAMP=$(date '+%Y%m%d.%H%M')
 CACHE_DIR="/var/tmp/os-cloud-images"
 MAX_VERSIONS=2
@@ -256,18 +262,32 @@ discover_rocky() {
         local listing
         listing=$(fetch_page "$base/$ver/images/x86_64/") || continue
 
+        # Determine the minor version from versioned filenames in the listing
+        # Matches both GenericCloud-Base-9.7-... and GenericCloud-9.7-... patterns
+        local minor_ver full_ver
+        minor_ver=$(echo "$listing" | extract_hrefs \
+            | grep -E "^Rocky-${ver}-GenericCloud(-Base)?-${ver}\.[0-9]+-" \
+            | sed "s/Rocky-${ver}-GenericCloud\(-Base\)\?-\(${ver}\.[0-9]\+\)-.*/\2/" \
+            | sort -V | tail -1)
+        full_ver="${minor_ver:-$ver}"
+
         # GenericCloud (no LVM) — plain partitioned disk
+        # Prefer GenericCloud-Base.latest (Rocky 10+), fall back to GenericCloud.latest (Rocky 9)
         local filename
         filename=$(echo "$listing" | extract_hrefs \
-            | grep -E "^Rocky-${ver}-GenericCloud\.latest\.x86_64\.qcow2$" | head -1)
+            | grep -E "^Rocky-${ver}-GenericCloud-Base\.latest\.x86_64\.qcow2$" | head -1)
         if [[ -z "$filename" ]]; then
             filename=$(echo "$listing" | extract_hrefs \
-                | grep -E "^Rocky-${ver}-GenericCloud-[0-9].*\.x86_64\.qcow2$" \
+                | grep -E "^Rocky-${ver}-GenericCloud\.latest\.x86_64\.qcow2$" | head -1)
+        fi
+        if [[ -z "$filename" ]]; then
+            filename=$(echo "$listing" | extract_hrefs \
+                | grep -E "^Rocky-${ver}-GenericCloud(-Base)?-[0-9].*\.x86_64\.qcow2$" \
                 | grep -v '\-LVM' \
                 | sort -V | tail -1)
         fi
         [[ -n "$filename" ]] && \
-            echo "rocky-${ver}|Rocky Linux ${ver}|${base}/${ver}/images/x86_64/${filename}|rocky||rocky|${ver}|rocky|true|opensource"
+            echo "rocky-${ver}|Rocky Linux ${full_ver}|${base}/${ver}/images/x86_64/${filename}|rocky||rocky|${full_ver}|rocky|true|opensource"
 
         # GenericCloud-LVM — LVM-based root disk
         local lvm_filename
@@ -279,7 +299,7 @@ discover_rocky() {
                 | sort -V | tail -1)
         fi
         [[ -n "$lvm_filename" ]] && \
-            echo "rocky-${ver}-lvm|Rocky Linux ${ver} (LVM)|${base}/${ver}/images/x86_64/${lvm_filename}|rocky|lvm-pvresize|rocky|${ver}|rocky|false|opensource"
+            echo "rocky-${ver}-lvm|Rocky Linux ${full_ver} (LVM)|${base}/${ver}/images/x86_64/${lvm_filename}|rocky|lvm-pvresize|rocky|${full_ver}|rocky|false|opensource"
     done
 }
 
@@ -499,6 +519,34 @@ CIEOF
     esac
 }
 
+# --- Probe image for OS version ----------------------------------------------
+probe_image_version() {
+    local image="$1" distro="$2"
+    local version=""
+
+    # Debian: /etc/debian_version has the precise point release (e.g. 12.13)
+    if [[ "$distro" == "debian" ]]; then
+        version=$(sudo virt-cat -a "$image" /etc/debian_version 2>/dev/null \
+            | tr -d '[:space:]')
+        if [[ "$version" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "$version"
+            return 0
+        fi
+    fi
+
+    # Generic: parse VERSION_ID from /etc/os-release
+    local os_release
+    os_release=$(sudo virt-cat -a "$image" /etc/os-release 2>/dev/null) || return 1
+    version=$(echo "$os_release" | sed -n 's/^VERSION_ID="\?\([^"]*\)"\?$/\1/p' | head -1)
+
+    if [[ -n "$version" ]]; then
+        echo "$version"
+        return 0
+    fi
+
+    return 1
+}
+
 # --- Convert image to target format ------------------------------------------
 convert_image() {
     local src="$1" dest="$2" src_format="$3" dest_format="$4"
@@ -633,6 +681,16 @@ import_single() {
     local work_image="${CACHE_DIR}/${key}.work.${work_ext}"
     if (( ! DRY_RUN )); then
         cp "$image_file" "$work_image"
+    fi
+
+    # Probe image for precise OS version (e.g. Debian point release)
+    if (( ! DRY_RUN )) && command -v virt-cat &>/dev/null; then
+        local probed_ver
+        probed_ver=$(probe_image_version "$work_image" "${IMG_DISTRO[$idx]}") || true
+        if [[ -n "$probed_ver" && "$probed_ver" != "${IMG_VERSION[$idx]}" ]]; then
+            ok "Detected os_version: ${probed_ver} (was ${IMG_VERSION[$idx]})"
+            IMG_VERSION[$idx]="$probed_ver"
+        fi
     fi
 
     # Customize (guest-agent injection, ptp_kvm, etc.)
