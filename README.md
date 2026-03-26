@@ -15,8 +15,6 @@ A collection of Bash scripts to simplify repetitive sysadmin and infrastructure 
 - [Scripts](#-scripts)
   - [memory-usage-report-kvm.sh](#-memory-usage-report-kvmsh)
   - [memory-usage-report-esxi.sh](#-memory-usage-report-esxish)
-  - [memory-usage-report-openstack.sh](#-memory-usage-report-openstacksh)
-  - [os-import-cloud-images.sh](#-os-import-cloud-imagessh)
   - [create-ssl-csr.sh](#-create-ssl-csrsh)
   - [guacamole-reset-user-otp.sh](#-guacamole-reset-user-otpsh)
 - [Documentation](#-documentation)
@@ -33,8 +31,6 @@ A collection of Bash scripts to simplify repetitive sysadmin and infrastructure 
 |---|---|---|---|
 | `memory-usage-report-kvm.sh` | ![v2.4](https://img.shields.io/badge/version-2.4-blue) | 2025-09-11 | 2026-02-27 |
 | `memory-usage-report-esxi.sh` | ![v1.2](https://img.shields.io/badge/version-1.2-blue) | 2025-09-11 | 2026-02-27 |
-| `memory-usage-report-openstack.sh` | ![v0.2](https://img.shields.io/badge/version-0.2-orange) | 2025-12-24 | 2026-02-27 |
-| `os-import-cloud-images.sh` | ![v1.2](https://img.shields.io/badge/version-1.2-blue) | 2026-03-12 | 2026-03-26 |
 | `create-ssl-csr.sh` | ![v1.1](https://img.shields.io/badge/version-1.1-blue) | 2025-06-06 | 2026-02-27 |
 | `guacamole-reset-user-otp.sh` | ![v1.0](https://img.shields.io/badge/version-1.0-blue) | 2021-11-02 | 2026-02-27 |
 
@@ -153,174 +149,6 @@ Supports **table** (default), **CSV**, and **JSON** output formats.
 
 ---
 
-### 🔍 `memory-usage-report-openstack.sh`
-
-Provides an accurate summary of OpenStack resources per domain, with a per-project breakdown. It reports:
-
-- Instance count per project
-- vCPU and RAM allocation per project
-- Volume count and total volume size per project
-- Domain-wide totals
-
-#### ⚙️ Requirements
-
-- Required tools:
-  - `openstack` CLI (configured with admin or domain admin scope)
-  - `jq`
-- A sourced OpenStack credentials file (e.g., `openrc.sh`)
-
-#### 💡 Recommendations
-
-- Source your OpenStack credentials before running:
-  ```bash
-  source ~/openrc.sh
-  ```
-- For large domains with many projects, execution may take time due to API queries per project and server.
-
-#### 🚀 Usage
-
-```bash
-# Summarize resources for a specific domain
-./memory-usage-report-openstack.sh my-domain
-
-# Display version
-./memory-usage-report-openstack.sh --version
-
-# Display help
-./memory-usage-report-openstack.sh --help
-```
-
----
-
-### 🔍 `os-import-cloud-images.sh`
-
-Imports upstream cloud images into OpenStack Glance with standardized metadata properties optimized for virtio/UEFI/q35 environments. Dynamically discovers the latest releases from distribution mirrors, optionally customizes them, converts to the target disk format, and uploads with full Glance metadata.
-
-Supported distributions: **Debian**, **Ubuntu LTS**, **Rocky Linux** (plain and LVM), **openSUSE Leap**, **Oracle Linux**.
-
-Default disk format is **raw** (recommended for Ceph RBD backends).
-
-#### ⚙️ Requirements
-
-- Required tools:
-  - `openstack` CLI (python-openstackclient, configured with admin credentials)
-  - `qemu-img` (qemu-utils / qemu-tools)
-  - `jq`
-  - `curl` or `wget`
-- Optional:
-  - `virt-customize` (libguestfs-tools) — for image customization (see below)
-- A sourced OpenStack credentials file (e.g., `openrc.sh`)
-
-#### 🔧 Per-Distribution Customizations
-
-When `virt-customize` is available (and `--no-customize` is not used), the following customizations are applied:
-
-| Distribution | Customization | Details |
-|---|---|---|
-| Debian, Ubuntu | `guest-agent` | Installs `qemu-guest-agent` package (not included by default) |
-| openSUSE Leap | `ptp-fix` | Injects `/etc/modules-load.d/ptp_kvm.conf` to load the `ptp_kvm` kernel module |
-| Rocky Linux (LVM) | `lvm-pvresize` | Injects a cloud-init bootcmd (`/etc/cloud/cloud.cfg.d/99-pvresize.cfg`) that runs `pvresize` on all PVs at every boot, so the VG gains free space after a volume resize. LV allocation (`lvresize`/`lvcreate`) is left to the user. |
-| Rocky Linux, Oracle Linux | — | No customization needed (guest-agent already included) |
-
-All customized images have `/etc/machine-id` truncated to avoid duplicate IDs on clone.
-
-#### 📋 Glance Image Properties
-
-Every imported image is tagged with standardized hardware metadata:
-
-| Property | Value | Purpose |
-|---|---|---|
-| `os_type` | `linux` | OS family |
-| `hw_machine_type` | `q35` | Modern PCIe-native machine type |
-| `hw_firmware_type` | `uefi` | UEFI boot |
-| `hw_scsi_model` | `virtio-scsi` | Paravirtualized SCSI controller |
-| `hw_disk_bus` | `scsi` | Disk attached via virtio-scsi |
-| `hw_vif_model` | `virtio` | Paravirtualized NIC |
-| `hw_vif_multiqueue_enabled` | `true` | Multi-queue for better network throughput |
-| `hw_virtio_packed_ring` | `true` | Packed virtqueue for lower overhead |
-| `hw_video_model` | `virtio` | Paravirtualized GPU |
-| `hw_serial_port_count` | `1` | Serial console access |
-| `hw_qemu_guest_agent` | `true` | Enables guest agent communication |
-| `os_require_quiesce` | `true` | Quiesced snapshots for consistent backups |
-| `hw_require_fsfreeze` | `true` | Filesystem freeze before snapshots |
-
-Per-distribution properties are also set: `os_distro`, `os_version`, `os_admin_user`, `has_auto_disk_config`, and `os_license`.
-
-| Distribution | `os_distro` | `os_admin_user` | `has_auto_disk_config` | `os_license` |
-|---|---|---|---|---|
-| Debian | `debian` | `debian` | `true` | `opensource` |
-| Ubuntu | `ubuntu` | `ubuntu` | `true` | `opensource` |
-| Rocky Linux | `rocky` | `rocky` | `true` | `opensource` |
-| Rocky Linux (LVM) | `rocky` | `rocky` | `false` | `opensource` |
-| openSUSE Leap | `opensuse` | `opensuse` | `true` | `opensource` |
-| Oracle Linux | `oel` | `oracle` | `false` | `opensource` |
-
-The `os_license` property defaults to `opensource` for all discovered distributions and can be overridden with `--os-license` (e.g. `--os-license rhel` for RHEL images).
-
-#### 🌐 Proxy Support
-
-The script honours `http_proxy`, `https_proxy` and `no_proxy` environment variables. When set, proxy settings are automatically forwarded to the guest package manager during image customization (guest-agent injection).
-
-The `virt-customize` step runs inside a QEMU SLIRP virtual machine with its own built-in DHCP server, so it works regardless of the host's LAN configuration. Proxy environment variables are stripped from the `virt-customize` invocation to prevent routing failures inside the appliance, and injected into the guest's package manager config instead (e.g. `/etc/apt/apt.conf.d/99proxy` for Debian/Ubuntu). All transient files are cleaned up after installation.
-
-```bash
-export http_proxy=http://proxy:3128
-export https_proxy=http://proxy:3128
-export no_proxy=localhost,127.0.0.1,.internal.lan
-./os-import-cloud-images.sh -b -d debian
-```
-
-#### 💡 Recommendations
-
-- Source your OpenStack credentials before running:
-  ```bash
-  source ~/openrc.sh
-  ```
-- Use `raw` disk format (default) when your Glance backend is Ceph RBD to leverage copy-on-write cloning.
-- Use `--no-customize` if guest-agent installation will be handled via cloud-init user-data instead.
-- For LVM images, after booting a VM with a larger volume, the PV is already resized. Use `vgs` to see free space, then `lvresize`/`lvcreate` as needed.
-
-#### 🚀 Usage
-
-```bash
-# List available images
-./os-import-cloud-images.sh -l
-
-# Interactive selection
-./os-import-cloud-images.sh -i
-
-# Import all images in batch
-./os-import-cloud-images.sh -b
-
-# Import Debian images only
-./os-import-cloud-images.sh -b -d debian
-
-# Import as private images
-./os-import-cloud-images.sh -b --visibility private
-
-# Use qcow2 format (non-Ceph backends)
-./os-import-cloud-images.sh -b -f qcow2
-
-# Override os_license property
-./os-import-cloud-images.sh -b --os-license rhel
-
-# Dry run
-./os-import-cloud-images.sh -n -b
-
-# Display version
-./os-import-cloud-images.sh --version
-
-# Display help
-./os-import-cloud-images.sh --help
-
-# Behind a proxy
-export http_proxy=http://proxy:3128 https_proxy=http://proxy:3128
-export no_proxy=localhost,127.0.0.1,.internal.lan
-./os-import-cloud-images.sh -b -d debian
-```
-
----
-
 ### 🔍 `create-ssl-csr.sh`
 
 Helps create an SSL Certificate Signing Request (CSR) to be shared with a Certificate Authority. It generates a private key and CSR based on configurable variables defined in the script. Optionally, it can generate a CA certificate or a self-signed certificate.
@@ -414,6 +242,7 @@ sudo make uninstall-man
 
 | Project | Description |
 |---|---|
+| [osu-tools](https://github.com/ciroiriarte/osu-tools) | OpenStack User Tools — wrappers and tools for OpenStack CLI/API (formerly part of this repository) |
 | [nic-xray](https://github.com/ciroiriarte/nic-xray) | Network interface diagnostics tool (formerly part of this repository) |
 
 ---
