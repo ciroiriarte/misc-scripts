@@ -6,7 +6,7 @@
 #
 # Author: Ciro Iriarte <ciro.iriarte+software@gmail.com>
 # Created: 2026-03-12
-# Version: 1.1
+# Version: 1.2
 #
 # Requirements:
 #   - openstack CLI (python-openstackclient) configured with admin credentials
@@ -16,6 +16,14 @@
 #   - jq
 #
 # Changelog:
+#   - 2026-03-26: v1.2 - Fix guest-agent injection in proxy-only and
+#                         restricted-network environments. The libguestfs
+#                         appliance SLIRP interface is now brought up via
+#                         DHCP before package installation. Proxy env vars
+#                         (http_proxy, https_proxy, no_proxy) are forwarded
+#                         to the guest package manager, and stripped from the
+#                         virt-customize environment to prevent routing
+#                         failures inside the appliance. Closes #2.
 #   - 2026-03-25: v1.1 - Include point release in os_version property:
 #                         Rocky Linux via mirror filename parsing, all
 #                         distros via image probing with virt-cat (reads
@@ -31,7 +39,7 @@
 set -euo pipefail
 
 # --- Configuration ---
-SCRIPT_VERSION="1.1"
+SCRIPT_VERSION="1.2"
 TIMESTAMP=$(date '+%Y%m%d.%H%M')
 CACHE_DIR="/var/tmp/os-cloud-images"
 MAX_VERSIONS=2
@@ -141,6 +149,13 @@ Options:
   -h, --help            Show this help message
   -v, --version         Show version
 
+Proxy support:
+  The script honours http_proxy, https_proxy and no_proxy environment
+  variables.  When set, proxy settings are automatically forwarded to the
+  guest package manager during image customization (guest-agent injection).
+  The libguestfs appliance network is brought up via QEMU SLIRP (built-in
+  DHCP), which works regardless of the host's LAN configuration.
+
 Requirements:
   - openstack CLI configured with admin credentials (source openrc.sh)
   - qemu-img
@@ -157,6 +172,11 @@ Examples:
   $0 -b --visibility private    Import as private images
   $0 -b --os-license rhel       Override os_license property
   $0 -n -b                      Dry run, all images
+
+  # Behind a proxy:
+  export http_proxy=http://proxy:3128 https_proxy=http://proxy:3128
+  export no_proxy=localhost,127.0.0.1,.internal.lan
+  $0 -b -d debian
 EOF
 }
 
@@ -480,6 +500,85 @@ download_image() {
 }
 
 # --- Customize ----------------------------------------------------------------
+
+# Run virt-customize with proxy env vars stripped from the environment.
+# Prevents http_proxy/https_proxy from leaking into the libguestfs appliance
+# where they cause "Network is unreachable" errors (the appliance cannot route
+# to the host's proxy IP directly).
+run_virt_customize() {
+    if (( DRY_RUN )); then
+        echo -e "   ${C_YELLOW}[dry-run]${C_RESET} sudo virt-customize $*"
+    else
+        sudo env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY \
+            -u no_proxy -u NO_PROXY \
+            virt-customize "$@"
+    fi
+}
+
+# Build a shell snippet that brings up networking inside the libguestfs
+# appliance (QEMU SLIRP) and optionally configures the guest's package
+# manager to use a proxy.
+#
+# The libguestfs appliance relies on QEMU user-mode (SLIRP) networking,
+# which provides a built-in DHCP server regardless of the host's LAN.
+# However, the appliance may fail to auto-configure the interface (e.g.
+# missing systemd-network user), so we bring it up explicitly via dhclient.
+#
+# Once SLIRP is up, outbound traffic is NAT-ed through the host, so the
+# proxy IP is reachable from inside the guest.
+_build_guest_net_setup() {
+    local family="$1"
+    local script=""
+
+    # Bring up SLIRP networking via DHCP
+    script+="ip link set eth0 up && dhclient eth0"
+
+    # Inject proxy configuration for the guest's package manager
+    if [[ -n "${http_proxy:-}${https_proxy:-}${HTTP_PROXY:-}${HTTPS_PROXY:-}" ]]; then
+        local proxy_url="${http_proxy:-${HTTP_PROXY:-}}"
+        local proxy_https="${https_proxy:-${HTTPS_PROXY:-${proxy_url}}}"
+        local no_proxy_val="${no_proxy:-${NO_PROXY:-}}"
+
+        case "$family" in
+            debian|ubuntu)
+                script+=" && printf '"
+                [[ -n "$proxy_url" ]] && \
+                    script+="Acquire::http::Proxy \"${proxy_url}\";\n"
+                [[ -n "$proxy_https" ]] && \
+                    script+="Acquire::https::Proxy \"${proxy_https}\";\n"
+                if [[ -n "$no_proxy_val" ]]; then
+                    # Convert comma-separated no_proxy to apt Direct rules
+                    local IFS=','
+                    for host in $no_proxy_val; do
+                        host=$(echo "$host" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                        [[ -z "$host" ]] && continue
+                        script+="Acquire::http::Proxy::${host} \"DIRECT\";\n"
+                        script+="Acquire::https::Proxy::${host} \"DIRECT\";\n"
+                    done
+                fi
+                script+="' > /etc/apt/apt.conf.d/99proxy"
+                ;;
+        esac
+    fi
+
+    printf '%s' "$script"
+}
+
+# Build the cleanup snippet that removes transient files written into the
+# guest during customization (proxy config, DHCP-generated resolv.conf).
+_build_guest_net_cleanup() {
+    local family="$1"
+    local script="rm -f /etc/resolv.conf"
+
+    case "$family" in
+        debian|ubuntu)
+            script+=" /etc/apt/apt.conf.d/99proxy"
+            ;;
+    esac
+
+    printf '%s' "$script"
+}
+
 customize_image() {
     local image="$1" action="$2" family="$3"
     (( CUSTOMIZE )) || return 0
@@ -487,8 +586,25 @@ customize_image() {
     case "$action" in
         guest-agent)
             msg "Injecting qemu-guest-agent..."
-            run sudo virt-customize -a "$image" --install qemu-guest-agent
-            run sudo virt-customize -a "$image" \
+            local net_setup net_cleanup install_cmd
+            net_setup=$(_build_guest_net_setup "$family")
+            net_cleanup=$(_build_guest_net_cleanup "$family")
+
+            case "$family" in
+                debian|ubuntu)
+                    install_cmd="export DEBIAN_FRONTEND=noninteractive"
+                    install_cmd+=" && apt-get -q -y update"
+                    install_cmd+=" && apt-get -q -y -o Dpkg::Options::=--force-confnew install qemu-guest-agent"
+                    ;;
+                *)
+                    install_cmd="command -v dnf &>/dev/null && dnf -y install qemu-guest-agent"
+                    install_cmd+=" || command -v yum &>/dev/null && yum -y install qemu-guest-agent"
+                    install_cmd+=" || command -v zypper &>/dev/null && zypper -n install qemu-guest-agent"
+                    ;;
+            esac
+
+            run_virt_customize -a "$image" \
+                --run-command "${net_setup} && ${install_cmd} && ${net_cleanup}" \
                 --run-command '[ -f /etc/machine-id ] && truncate -s 0 /etc/machine-id || true'
             ;;
         lvm-pvresize)
@@ -504,16 +620,14 @@ bootcmd:
     done
 CIEOF
 )
-            run sudo virt-customize -a "$image" \
-                --write /etc/cloud/cloud.cfg.d/99-pvresize.cfg:"$ci_cfg"
-            run sudo virt-customize -a "$image" \
+            run_virt_customize -a "$image" \
+                --write /etc/cloud/cloud.cfg.d/99-pvresize.cfg:"$ci_cfg" \
                 --run-command '[ -f /etc/machine-id ] && truncate -s 0 /etc/machine-id || true'
             ;;
         ptp-fix)
             msg "Enabling ptp_kvm module..."
-            run sudo virt-customize -a "$image" \
-                --write /etc/modules-load.d/ptp_kvm.conf:ptp_kvm
-            run sudo virt-customize -a "$image" \
+            run_virt_customize -a "$image" \
+                --write /etc/modules-load.d/ptp_kvm.conf:ptp_kvm \
                 --run-command '[ -f /etc/machine-id ] && truncate -s 0 /etc/machine-id || true'
             ;;
     esac

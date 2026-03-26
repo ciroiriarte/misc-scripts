@@ -1,6 +1,6 @@
 .\" Man page for os-import-cloud-images.sh
 .\" Written in classic troff/groff format
-.TH OS-IMPORT-CLOUD-IMAGES 1 "2026-03-25" "os-import-cloud-images 1.1" "User Commands"
+.TH OS-IMPORT-CLOUD-IMAGES 1 "2026-03-26" "os-import-cloud-images 1.2" "User Commands"
 .SH NAME
 os-import-cloud-images \- import upstream cloud images into OpenStack Glance
 .SH SYNOPSIS
@@ -211,6 +211,48 @@ property defaults to "opensource" for all discovered distributions and can
 be overridden with the
 .B \-\-os\-license
 option (e.g. "rhel" for Red Hat Enterprise Linux images).
+.SH PROXY SUPPORT
+The script honours the standard
+.BR http_proxy ", " https_proxy " and " no_proxy
+environment variables (case-insensitive).
+When any of these are set, the proxy configuration is automatically forwarded
+to the guest package manager during image customization (guest-agent
+injection).
+.PP
+The
+.BR virt-customize (1)
+step runs inside a QEMU usermode (SLIRP) virtual machine.
+The appliance interface is brought up via the built-in SLIRP DHCP server,
+which works regardless of the host\(aqs LAN configuration.
+Once the SLIRP network is active, outbound traffic is NAT-ed through the
+host, so the proxy address is reachable from inside the guest.
+.PP
+Proxy environment variables are stripped from the
+.BR virt-customize (1)
+invocation itself to prevent them from leaking directly into the appliance
+kernel, where they would cause routing failures (the appliance cannot
+reach the host\(aqs proxy IP via its own network stack).
+.PP
+For Debian and Ubuntu images, proxy settings are written to
+.I /etc/apt/apt.conf.d/99proxy
+inside the guest, and
+.B no_proxy
+entries are translated to
+.B Acquire::http::Proxy::<host> \(dqDIRECT\(dq
+rules.
+All transient files (proxy config, DHCP-generated resolv.conf) are removed
+after package installation.
+.PP
+Example usage behind a proxy:
+.PP
+.RS
+.nf
+export http_proxy=http://proxy:3128
+export https_proxy=http://proxy:3128
+export no_proxy=localhost,127.0.0.1,.internal.lan
+os-import-cloud-images.sh -b -d debian
+.fi
+.RE
 .SH REQUIREMENTS
 The following commands must be available in
 .BR PATH :
@@ -276,6 +318,17 @@ Import with license override:
 .PP
 .RS
 .B os-import-cloud-images.sh -b --os-license rhel -d oracle
+.RE
+.PP
+Import Debian images behind a proxy:
+.PP
+.RS
+.nf
+export http_proxy=http://proxy:3128
+export https_proxy=http://proxy:3128
+export no_proxy=localhost,127.0.0.1,.internal.lan
+.B os-import-cloud-images.sh -b -d debian
+.fi
 .RE
 .SH AUTHORS
 Ciro Iriarte <ciro.iriarte+software@gmail.com>

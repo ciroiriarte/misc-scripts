@@ -34,7 +34,7 @@ A collection of Bash scripts to simplify repetitive sysadmin and infrastructure 
 | `memory-usage-report-kvm.sh` | ![v2.4](https://img.shields.io/badge/version-2.4-blue) | 2025-09-11 | 2026-02-27 |
 | `memory-usage-report-esxi.sh` | ![v1.2](https://img.shields.io/badge/version-1.2-blue) | 2025-09-11 | 2026-02-27 |
 | `memory-usage-report-openstack.sh` | ![v0.2](https://img.shields.io/badge/version-0.2-orange) | 2025-12-24 | 2026-02-27 |
-| `os-import-cloud-images.sh` | ![v1.1](https://img.shields.io/badge/version-1.1-blue) | 2026-03-12 | 2026-03-25 |
+| `os-import-cloud-images.sh` | ![v1.2](https://img.shields.io/badge/version-1.2-blue) | 2026-03-12 | 2026-03-26 |
 | `create-ssl-csr.sh` | ![v1.1](https://img.shields.io/badge/version-1.1-blue) | 2025-06-06 | 2026-02-27 |
 | `guacamole-reset-user-otp.sh` | ![v1.0](https://img.shields.io/badge/version-1.0-blue) | 2021-11-02 | 2026-02-27 |
 
@@ -257,6 +257,19 @@ Per-distribution properties are also set: `os_distro`, `os_version`, `os_admin_u
 
 The `os_license` property defaults to `opensource` for all discovered distributions and can be overridden with `--os-license` (e.g. `--os-license rhel` for RHEL images).
 
+#### 🌐 Proxy Support
+
+The script honours `http_proxy`, `https_proxy` and `no_proxy` environment variables. When set, proxy settings are automatically forwarded to the guest package manager during image customization (guest-agent injection).
+
+The `virt-customize` step runs inside a QEMU SLIRP virtual machine with its own built-in DHCP server, so it works regardless of the host's LAN configuration. Proxy environment variables are stripped from the `virt-customize` invocation to prevent routing failures inside the appliance, and injected into the guest's package manager config instead (e.g. `/etc/apt/apt.conf.d/99proxy` for Debian/Ubuntu). All transient files are cleaned up after installation.
+
+```bash
+export http_proxy=http://proxy:3128
+export https_proxy=http://proxy:3128
+export no_proxy=localhost,127.0.0.1,.internal.lan
+./os-import-cloud-images.sh -b -d debian
+```
+
 #### 💡 Recommendations
 
 - Source your OpenStack credentials before running:
@@ -299,6 +312,11 @@ The `os_license` property defaults to `opensource` for all discovered distributi
 
 # Display help
 ./os-import-cloud-images.sh --help
+
+# Behind a proxy
+export http_proxy=http://proxy:3128 https_proxy=http://proxy:3128
+export no_proxy=localhost,127.0.0.1,.internal.lan
+./os-import-cloud-images.sh -b -d debian
 ```
 
 ---
