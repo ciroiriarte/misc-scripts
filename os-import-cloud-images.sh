@@ -604,8 +604,7 @@ customize_image() {
             esac
 
             run_virt_customize -a "$image" \
-                --run-command "${net_setup} && ${install_cmd} && ${net_cleanup}" \
-                --run-command '[ -f /etc/machine-id ] && truncate -s 0 /etc/machine-id || true'
+                --run-command "${net_setup} && ${install_cmd} && ${net_cleanup}"
             ;;
         lvm-pvresize)
             msg "Injecting cloud-init pvresize bootcmd..."
@@ -621,16 +620,23 @@ bootcmd:
 CIEOF
 )
             run_virt_customize -a "$image" \
-                --write /etc/cloud/cloud.cfg.d/99-pvresize.cfg:"$ci_cfg" \
-                --run-command '[ -f /etc/machine-id ] && truncate -s 0 /etc/machine-id || true'
+                --write /etc/cloud/cloud.cfg.d/99-pvresize.cfg:"$ci_cfg"
             ;;
         ptp-fix)
             msg "Enabling ptp_kvm module..."
             run_virt_customize -a "$image" \
-                --write /etc/modules-load.d/ptp_kvm.conf:ptp_kvm \
-                --run-command '[ -f /etc/machine-id ] && truncate -s 0 /etc/machine-id || true'
+                --write /etc/modules-load.d/ptp_kvm.conf:ptp_kvm
             ;;
     esac
+
+    # virt-customize populates /etc/machine-id during its "Setting the
+    # machine ID" phase.  Truncate it back to zero so cloud-init / systemd
+    # regenerate a unique ID on first boot.  Cloud images ship with an
+    # empty machine-id by default, so this is only needed after
+    # virt-customize has touched the image.
+    msg "Truncating /etc/machine-id..."
+    run_virt_customize -a "$image" \
+        --run-command '[ -f /etc/machine-id ] && truncate -s 0 /etc/machine-id || true'
 }
 
 # --- Probe image for OS version ----------------------------------------------
