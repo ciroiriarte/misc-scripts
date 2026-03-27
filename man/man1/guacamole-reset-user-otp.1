@@ -1,0 +1,71 @@
+.\" Man page for guacamole-reset-user-otp.sh
+.\" Written in classic troff/groff format
+.TH GUACAMOLE-RESET-USER-OTP 1 "2026-03-27" "guacamole-reset-user-otp 1.0" "User Commands"
+.SH NAME
+guacamole-reset-user-otp \- reset TOTP enrollment for a Guacamole user
+.SH SYNOPSIS
+.B guacamole-reset-user-otp.sh
+.RB [ \-h | \-\-help ]
+.RB [ \-v | \-\-version ]
+.I username
+.SH DESCRIPTION
+.B guacamole-reset-user-otp.sh
+resets the TOTP (Time-based One-Time Password) enrollment for a specified
+user in Apache Guacamole. After running, the target user will be prompted
+to re-enroll their OTP device on their next login.
+.PP
+The script updates the
+.B guac-totp-key-confirmed
+attribute in the Guacamole database, setting it to
+.BR false .
+.SH OPTIONS
+.TP
+.BR \-v ", " \-\-version
+Display version information and exit.
+.TP
+.BR \-h ", " \-\-help
+Display usage information and exit.
+.SH ARGUMENTS
+.TP
+.I username
+The Guacamole username whose OTP enrollment should be reset. Required.
+Only alphanumeric characters, dots, hyphens, underscores, and @ are
+accepted.
+.SH CONFIGURATION
+The following variables should be edited at the top of the script:
+.TP
+.B DBNAME
+Guacamole database name (default: "guacamole").
+.TP
+.B DBCMD
+MySQL command to use. By default, uses
+.B mysql
+which reads credentials from
+.IR ~/.my.cnf .
+An alternative with inline credentials is provided as a comment.
+.SH REQUIREMENTS
+The following command must be available in
+.BR PATH :
+.PP
+.RS
+.BR mysql (1)
+.RE
+.PP
+A working Guacamole database with the native TOTP module enabled is required.
+.SH EXIT STATUS
+.TP
+.B 0
+Successful execution.
+.TP
+.B 1
+Error: missing username, invalid username format, or invalid options.
+.SH EXAMPLES
+Reset OTP enrollment for a user:
+.PP
+.RS
+.B ./guacamole-reset-user-otp.sh ciro.iriarte
+.RE
+.SH AUTHORS
+Ciro Iriarte <ciro.iriarte+software@gmail.com>
+.SH SEE ALSO
+.BR mysql (1)

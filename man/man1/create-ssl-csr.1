@@ -1,0 +1,107 @@
+.\" Man page for create-ssl-csr.sh
+.\" Written in classic troff/groff format
+.TH CREATE-SSL-CSR 1 "2026-03-27" "create-ssl-csr 1.1" "User Commands"
+.SH NAME
+create-ssl-csr \- generate private keys and certificate signing requests
+.SH SYNOPSIS
+.B create-ssl-csr.sh
+.RB [ \-h | \-\-help ]
+.RB [ \-v | \-\-version ]
+.RB [ \-\-ca ]
+.RB [ \-\-self\-signed ]
+.SH DESCRIPTION
+.B create-ssl-csr.sh
+generates an RSA private key and a Certificate Signing Request (CSR) to be
+submitted to a Certificate Authority (CA). It uses configurable variables
+defined at the top of the script to populate the distinguished name and
+Subject Alternative Name (SAN) fields.
+.PP
+Optionally, it can:
+.IP \(bu 3
+Generate a CA certificate (with keyCertSign and cRLSign key usage)
+.IP \(bu
+Generate a self-signed certificate from the CSR
+.SH OPTIONS
+.TP
+.B \-\-ca
+Generate a CA certificate. Sets basicConstraints to CA:true and keyUsage to
+keyCertSign and cRLSign.
+.TP
+.B \-\-self\-signed
+Also generate a self-signed certificate using the generated key and CSR.
+The validity period is controlled by the
+.B DAYS_VALID
+configuration variable (default: 365 days).
+.TP
+.BR \-v ", " \-\-version
+Display version information and exit.
+.TP
+.BR \-h ", " \-\-help
+Display usage information and exit.
+.SH CONFIGURATION
+The following variables should be edited at the top of the script before use:
+.TP
+.B SITE
+Site identifier (default: "site1").
+.TP
+.B ORGDOMAIN
+Organization domain (default: "my.corp").
+.TP
+.B COUNTRY
+Two-letter country code (default: "PY").
+.TP
+.B STATE
+Full state or province name (default: "Central").
+.TP
+.B LOCALITY
+City name (default: "Asuncion").
+.TP
+.B ORG
+Organization name (default: "Super Corp").
+.TP
+.B ORG_UNIT
+Organizational unit (default: "IT Infra").
+.TP
+.B EMAIL
+Contact email address (default: "admin@${ORGDOMAIN}").
+.TP
+.B DAYS_VALID
+Certificate validity in days for self-signed certificates (default: 365).
+.SH REQUIREMENTS
+The following command must be available in
+.BR PATH :
+.PP
+.RS
+.BR openssl (1)
+.RE
+.SH EXIT STATUS
+.TP
+.B 0
+Successful execution.
+.TP
+.B 1
+Error: invalid options or unexpected arguments.
+.SH EXAMPLES
+Generate a standard CSR:
+.PP
+.RS
+.B ./create-ssl-csr.sh
+.RE
+.PP
+Generate a self-signed certificate:
+.PP
+.RS
+.B ./create-ssl-csr.sh \-\-self\-signed
+.RE
+.PP
+Generate a self-signed CA certificate:
+.PP
+.RS
+.B ./create-ssl-csr.sh \-\-ca \-\-self\-signed
+.RE
+.SH AUTHORS
+Ciro Iriarte <ciro.iriarte+software@gmail.com>
+.SH SEE ALSO
+.BR openssl (1),
+.BR openssl\-req (1),
+.BR openssl\-x509 (1)

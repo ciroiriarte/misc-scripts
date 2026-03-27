@@ -20,7 +20,8 @@
 SCRIPT_VERSION="1.2"
 OUTPUT_FORMAT="table"
 
-# --- Help ---
+# --- Functions ---
+
 show_help() {
     echo "Usage: $0 [-h|--help] [-v|--version] [--output FORMAT]"
     echo ""
@@ -37,10 +38,24 @@ show_help() {
     echo " --output FORMAT   Output format: table (default), csv, or json"
     echo "                   csv: VM table only (ID, name, GB columns)."
     echo "                   json: full report (host_summary, vms, totals)."
+    echo ""
+    echo "Example:"
+    echo " $0 --output json"
+}
+
+# Escape backslashes and double quotes for JSON string values
+json_escape() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+# Extract a named numeric KPI from vm.summary quickStats.
+# Depends on $VM_SUMMARY being set in the caller's scope.
+extract_kpi() {
+    echo "$VM_SUMMARY" | grep -m1 "$1" | awk '{print $NF}' | sed 's/,//' | grep -E '^[0-9]+$' || echo 0
 }
 
 # --- Argument Parsing ---
-while [ $# -gt 0 ]; do
+while [ "$#" -gt 0 ]; do
     case "$1" in
         -v|--version)
             echo "$0 $SCRIPT_VERSION"
@@ -64,14 +79,20 @@ while [ $# -gt 0 ]; do
                     exit 1
                     ;;
             esac
-            shift 2
+            shift
             ;;
-        *)
+        -*)
             echo "Error: Unknown option: $1" >&2
             show_help >&2
             exit 1
             ;;
+        *)
+            echo "Error: Unexpected argument: $1" >&2
+            show_help >&2
+            exit 1
+            ;;
     esac
+    shift
 done
 
 # --- Validation ---
@@ -86,17 +107,6 @@ for CMD in vsish vim-cmd awk grep sed; do
         exit 1
     fi
 done
-
-# --- Helper: escape backslashes and double quotes for JSON string values ---
-json_escape() {
-    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
-}
-
-# --- Helper: extract a named numeric KPI from vm.summary quickStats ---
-# Depends on $VM_SUMMARY being set in the caller's scope.
-extract_kpi() {
-    echo "$VM_SUMMARY" | grep -m1 "$1" | awk '{print $NF}' | sed 's/,//' | grep -E '^[0-9]+$' || echo 0
-}
 
 # --- Collect Host Memory Stats ---
 MEM_STATS=$(vsish -e get /memory/comprehensive)

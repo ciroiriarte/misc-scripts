@@ -42,6 +42,9 @@ show_help() {
     echo " --output FORMAT   Output format: table (default), csv, or json"
     echo "                   csv: VM table only (VM name + MiB columns)."
     echo "                   json: full report (host_summary, vms, ksm, host_config)."
+    echo ""
+    echo "Example:"
+    echo " $0 --output json"
 }
 
 print_header() {
@@ -66,15 +69,7 @@ json_escape() {
 }
 
 # --- Argument Parsing ---
-OPTIONS=$(getopt -o hv --long help,version,output: -n "$0" -- "$@")
-if [ $? -ne 0 ]; then
-    echo "Failed to parse options." >&2
-    exit 1
-fi
-
-eval set -- "$OPTIONS"
-
-while true; do
+while [[ "$#" -gt 0 ]]; do
     case "$1" in
         -v|--version)
             echo "$0 $SCRIPT_VERSION"
@@ -85,26 +80,33 @@ while true; do
             exit 0
             ;;
         --output)
+            if [[ -z "${2:-}" ]]; then
+                echo "Error: --output requires an argument (table, csv, or json)." >&2
+                exit 1
+            fi
             case "$2" in
                 table|csv|json)
                     OUTPUT_FORMAT="$2"
                     ;;
                 *)
-                    echo "Invalid output format: '$2'. Choose from table, csv, or json." >&2
+                    echo "Error: Invalid output format: '$2'. Choose from table, csv, or json." >&2
                     exit 1
                     ;;
             esac
-            shift 2
-            ;;
-        --)
             shift
-            break
+            ;;
+        -*)
+            echo "Error: Unknown option: $1" >&2
+            show_help >&2
+            exit 1
             ;;
         *)
-            echo "Unexpected option: $1" >&2
+            echo "Error: Unexpected argument: $1" >&2
+            show_help >&2
             exit 1
             ;;
     esac
+    shift
 done
 
 # --- Prerequisite Checks ---
@@ -290,7 +292,7 @@ fi
 
 # --- Baseline Comparison (table only) ---
 if [[ "$OUTPUT_FORMAT" == "table" ]]; then
-    if [ -f "$BASELINE_FILE" ]; then
+    if [[ -f "$BASELINE_FILE" ]]; then
         print_header "Comparing with Baseline"
         echo "Baseline recorded on: $(head -n 1 "$BASELINE_FILE")"
         echo ""

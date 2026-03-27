@@ -9,3 +9,6 @@ install-man:
 
 uninstall-man:
 	rm -f $(DESTDIR)$(MANDIR)/man1/memory-usage-report-kvm.1
+	rm -f $(DESTDIR)$(MANDIR)/man1/memory-usage-report-esxi.1
+	rm -f $(DESTDIR)$(MANDIR)/man1/create-ssl-csr.1
+	rm -f $(DESTDIR)$(MANDIR)/man1/guacamole-reset-user-otp.1

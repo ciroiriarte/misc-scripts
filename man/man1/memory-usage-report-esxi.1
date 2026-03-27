@@ -1,0 +1,106 @@
+.\" Man page for memory-usage-report-esxi.sh
+.\" Written in classic troff/groff format
+.TH MEMORY-USAGE-REPORT-ESXI 1 "2026-03-27" "memory-usage-report-esxi 1.2" "User Commands"
+.SH NAME
+memory-usage-report-esxi \- basic ESXi host memory usage and optimization summary
+.SH SYNOPSIS
+.B memory-usage-report-esxi.sh
+.RB [ \-h | \-\-help ]
+.RB [ \-v | \-\-version ]
+.RB [ \-\-output
+.IR FORMAT ]
+.SH DESCRIPTION
+.B memory-usage-report-esxi.sh
+provides a memory usage and optimization report for VMware ESXi hypervisor
+hosts. It collects data from the host and all registered virtual machines
+using native ESXi tools.
+.PP
+The report includes:
+.IP \(bu 3
+Host total, used, and free memory
+.IP \(bu
+Per-VM memory allocation and configured RAM
+.IP \(bu
+Per-VM ballooning, swapping, compression, and shared memory metrics
+.IP \(bu
+Per-VM guest, host, granted, private, and overhead memory
+.IP \(bu
+Aggregate totals across all VMs
+.PP
+Supports
+.BR table " (default),"
+.BR csv ", and"
+.B json
+output formats.
+.SH OPTIONS
+.TP
+.BI \-\-output " FORMAT"
+Set the output format.
+.I FORMAT
+must be one of:
+.RS
+.TP
+.B table
+Default. Human-readable report with headers, separators, per-VM details,
+and aggregate totals.
+.TP
+.B csv
+VM table only. Comma-separated values with columns: ID, VM Name, RAM (GB),
+Balloon (GB), Swap (GB), Compress (GB), Shared (GB), Guest (GB), Host (GB),
+Granted (GB), Private (GB), Overhead (GB).
+.TP
+.B json
+Full structured report as a single JSON object containing:
+.BR host_summary ", " vms " (array), and " totals .
+.RE
+.TP
+.BR \-v ", " \-\-version
+Display version information and exit.
+.TP
+.BR \-h ", " \-\-help
+Display usage information and exit.
+.SH REQUIREMENTS
+.B memory-usage-report-esxi.sh
+must be run as
+.B root
+directly on the ESXi host (via SSH or local shell).
+.PP
+The following commands must be available:
+.PP
+.RS
+.BR vsish ,
+.BR vim-cmd ,
+.BR awk (1),
+.BR grep (1),
+.BR sed (1)
+.RE
+.SH EXIT STATUS
+.TP
+.B 0
+Successful execution.
+.TP
+.B 1
+Error: not running as root, missing required commands, or invalid options.
+.SH EXAMPLES
+Run the default table report:
+.PP
+.RS
+.B ./memory-usage-report-esxi.sh
+.RE
+.PP
+CSV output (VM table only):
+.PP
+.RS
+.B ./memory-usage-report-esxi.sh \-\-output csv
+.RE
+.PP
+JSON output (full report):
+.PP
+.RS
+.B ./memory-usage-report-esxi.sh \-\-output json
+.RE
+.SH AUTHORS
+Ciro Iriarte <ciro.iriarte+software@gmail.com>
+.SH SEE ALSO
+.BR vsish (1),
+.BR vim-cmd (1)

@@ -197,6 +197,11 @@ Resets the TOTP (Time-based One-Time Password) enrollment for a specified user i
 - A working Guacamole database with the native TOTP module enabled
 - Database credentials configured in `~/.my.cnf` or edited directly in the script
 
+#### 💡 Recommendations
+
+- Configure MySQL credentials in `~/.my.cnf` instead of hardcoding them in the script for better security.
+- Verify the database name and user match your Guacamole installation before running.
+
 #### 🚀 Usage
 
 ```bash
